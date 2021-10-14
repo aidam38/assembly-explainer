@@ -1,0 +1,1 @@
+{"version":3,"sources":["roam_automations/views.cljs"],"mappings":";AAKA,8BAAA,9BAAMA;AAAN,AAAA,0FAAA,mDAAA","names":["roam-automations.views/main"],"sourcesContent":["(ns roam-automations.views\n  (:require [re-frame.core :as rf]\n            [reagent.core :as r]\n            [roam-automations.icons.heroicons :as hi]))\n\n(defn main []\n  [:div \"hello world\"])"]}

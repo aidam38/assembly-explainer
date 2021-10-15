@@ -1,8 +1,15 @@
 (ns assembly-explainer.events
-  (:require [re-frame.core :as rf]
-            [assembly-explainer.state :as db]))
+  (:require
+   [assembly-explainer.state :refer [ctx]]
+   [assembly-explainer.compiler.core :as compiler]))
 
-(defmulti dispatch first)
+(defmulti handle-event (fn [_ [ev-type]] ev-type))
 
-(defmethod dispatch :step-button-pressed [] "heello")
-(defmethod dispatch :back-button-pressed [] "heello back")
+(defmethod handle-event :initialize-program-state [{:keys [app-state]}]
+  (swap! app-state assoc :program-state (compiler/init-program-state (:program-input @app-state))))
+
+(defmethod handle-event :step [{:keys [app-state]}]
+  (swap! (:program-state @app-state) compiler/step))
+
+(defn dispatch [event]
+  (handle-event ctx event))

@@ -4,3 +4,4 @@
 /.lsp
 /.shadow-cljs
 /node_modules
+/resources/public/js/*

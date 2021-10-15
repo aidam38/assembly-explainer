@@ -1,8 +1,13 @@
 (ns assembly-explainer.state
-  (:require [reagent.core :as r]))
+  (:require
+   [assembly-explainer.compiler.core :as compiler]
+   [reagent.core :as r])
 
-(def app-state (r/atom {:program ""
-                        :program-state {}}))
+  (:require-macros [assembly-explainer.util :refer [expand-programs]]))
 
-(def context {:app-state app-state
-              :instruction-set {}})
+(def programs (expand-programs ["test1"]))
+
+(def app-state (r/atom {:program-input (first programs)
+                        :program-state nil}))
+
+(def ctx {:app-state app-state})

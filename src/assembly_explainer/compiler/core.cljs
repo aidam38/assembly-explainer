@@ -42,7 +42,21 @@
 (defn pop [state [dest]] (-> state
                              (inc-register [:register :rsp])
                              (mov [[:indirection :rsp] dest])))
-(defn pop [state [dest]] (mov (inc-register state [:register :rsp]) [[:indirection :rsp] dest]))
+(defn add [state [src dest]] (let [dest-path (complete-state-path state dest)
+                                   src-path  (complete-state-path state src)]
+                               (update-in state dest-path + (get-in state src-path))))
+
+(defn sub [state [src dest]] (let [dest-path (complete-state-path state dest)
+                                   src-path  (complete-state-path state src)]
+                               (update-in state dest-path - (get-in state src-path))))
+
+(defn mul [state [src dest]] (let [dest-path (complete-state-path state dest)
+                                   src-path  (complete-state-path state src)]
+                               (update-in state dest-path * (get-in state src-path))))
+
+(defn div [state [src]] (let [dest-path (complete-state-path state [:register :rax])
+                              src-path  (complete-state-path state src)]
+                               (update-in state dest-path / (get-in state src-path))))
 
 (defn step [program-state]
   ;;(execute current instruction)
@@ -57,7 +71,7 @@
 (comment
 
   ;; stub!
-  (def program-state (r/atom {:registers {:rip 0 :rsp 19 :rbp 0 :rax 0 :rbx 0 :rcx 0 :rdx 0 :rsi 0 :rdi 0}
+  (def program-state (r/atom {:registers {:rip 0 :rsp 19 :rbp 0 :rax 0 :rbx 0 :rcx 0 :rdx 0 :rsi 0 :rdi 0 :flags 0}
                               :memory {:program {:instructions []}
                                        :stack (vec (replicate 20 0))}}))
 

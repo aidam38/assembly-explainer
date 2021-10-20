@@ -27,15 +27,17 @@
      (for [ins @instructions]
        ^{:key (hash ins)} [ins-comp ins])]))
 
-
 (defn stack-item-comp [item]
-  [:div (pr-str item)])
+  [:div.flex.p-2
+   [:div.mr-8
+    (pr-str item)]])
 
 (defn stack-comp [{:keys [app-state]}]
   (r/with-let [stack (r/cursor (:program-state @app-state) [:memory :stack])]
-    [:div.bg-gray-900
+    [:div.bg-gray-900.mb-2.divide-y-2.divide-gray-50
      (doall (for [item @stack]
-              ^{:key (hash item)} [stack-item-comp item]))]))
+              (when item
+                ^{:key (hash item)} [stack-item-comp item])))]))
 
 (defn reg-comp [[name value]]
   [:div.flex

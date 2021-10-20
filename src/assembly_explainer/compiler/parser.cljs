@@ -7,9 +7,9 @@
                        args = (arg comma)+
                        arg = register | indirection | literal
                        indirection = literal <'('> register <')'>
-                       register = <'%'> ('rax' | 'rbx' | 'rsp')
+                       register = <'%'> ('rax' | 'rbx' | 'rcx' | 'rdx' | 'rsi' | 'rdi' | 'rsp' | 'rbp')
                        literal = <'$'> #'-?\\d+'
-                       opcode = 'mov'
+                       opcode = 'mov' | 'push' | 'pop' | 'add' | 'sub' 
                        <comma> = <#'\\s*,?\\s*'>
                        <ws> = <#'\\s*'>
                        <nl> = <#'(\\n|)'>"))
@@ -18,11 +18,17 @@
   (i/transform
    {:ins (fn [[_ opcode] [_ & args]] (concat [opcode] args))
     :arg (fn [type] type)}
-   (rest code-struct)))
+   (vec (rest code-struct))))
 
 (defn parse [{:keys [code]}]
   (->> code
        assembly-parser
-       get-ast))
+       get-ast
+       vec))
 
 #_(def literal (let [[src dest] (let [[op & args] (first ast)] args)] src))
+
+(comment
+  (assembly-parser "mov $42, %rbx
+push %rbx
+pop %rax"))

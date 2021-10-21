@@ -1,7 +1,7 @@
 (ns assembly-explainer.events
   (:require
    [assembly-explainer.state :refer [ctx]]
-   [assembly-explainer.compiler.core :as compiler]))
+   [assembly-explainer.compiler.machine :as compiler]))
 
 (defmulti handle-event (fn [_ [ev-type]] ev-type))
 

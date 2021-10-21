@@ -1,6 +1,5 @@
 (ns assembly-explainer.state
   (:require
-   [assembly-explainer.compiler.core :as compiler]
    [reagent.core :as r])
   (:require-macros [assembly-explainer.util :refer [expand-programs]]))
 

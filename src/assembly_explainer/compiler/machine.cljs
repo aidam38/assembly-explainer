@@ -57,6 +57,39 @@
 (defmethod process-instruction :default [_ [op]]
   (js/console.log "Can't recognize " (str op) "."))
 
+(defn find-first [coll f] (first (filter f coll)))
+
+;; Check if a value is in the given range
+(defn in-range [range x] (& (>= x (first range)) (<= x (second range))))
+
+;; Check if index is in the range of the given stack object
+(defn in-stack-object-range [o index] (in-range (:range o) index))
+
+;; Applies f to i if p(i) is true
+(defn update-if [i p f] (if (p i) (f i) (i)))
+
+;; Get the path of the stack object associated with the given stack index.
+(defn get-stack-object-path [state index] ())
+
+;; Get the stack objects asociated with the given index
+(defn get-stack-objects [state index] (filter #(in-stack-object-range % index) (get-in state [:memory :stack :indeces])))
+
+;; Get the first stack object associated with the given index
+(defn get-stack-object [state index] (first (get-stack-objects state index)))
+
+;; Apply f to the stack object that contains the given index
+(defn update-stack-object [state index f] (update-in state [:memory :stack :indices]
+                                                     (fn [indices] (map (fn [object] (update-if object #(in-stack-object-range % index) f))) indices)))
+
+;; Return true if there is a stack object associated with the given index
+(defn has-stack-object [state index] (not-empty (count (get-stack-objects state index))))
+
+(defn mov2 [state [src dest]]
+  (if (& (= (first dest) :indirection) (= (second dest) :rsp))
+    (-> state
+        (assoc-in (complete-state-path state dest) (resolve-src state src))
+        (assoc-in [:memory :stack :indices] ))))
+
 (defn mov [state [src dest]]
   (assoc-in state (complete-state-path state dest) (resolve-src state src)))
 

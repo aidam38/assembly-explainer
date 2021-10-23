@@ -1,8 +1,5 @@
 (ns assembly-explainer.util)
 
-;; functions
-(defn dectohex [x]
-  ())
 
 ;; macros
 (defmacro expand-programs [names]

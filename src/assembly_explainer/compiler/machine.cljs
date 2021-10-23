@@ -2,15 +2,15 @@
   [:require [reagent.core :as r]
    [assembly-explainer.compiler.parser :refer [parse]]
    [assembly-explainer.compiler.core :as c]
+   [assembly-explainer.util :as u]
    [assembly-explainer.state]
    [goog.string :as gstr]
    [goog.string.format]])
 
-;; Add the given value to the last element in coll
-(defn add-to-last [coll x]
-  (update coll (dec (count coll)) #(+ % x)))
 
 ;; Get the value of the register with the given name
+
+
 (defn get-register-value [state name]
   (get-in state [:registers (keyword name)]))
 
@@ -20,7 +20,7 @@
 (defn add-offset [path offset]
   (if (number? path)
     (+ path offset)
-    (add-to-last path offset)))
+    (u/add-to-last path offset)))
 
 ;; Compute the location an expression like '0x5(%rsp)' points to.
 (defn get-indirection-location [state [_ & location]]
@@ -33,15 +33,19 @@
 ;; get-in and update-in like [:stack :memory 0] or [:registers :rax] respectively
 (defn complete-state-path [state arg]
   (cond
-    (number? arg) [:memory :stack :bytes arg]
     (= (first arg) :register) [:registers (keyword (second arg))]
     (= (first arg) :indirection) (complete-state-path state (get-indirection-location state arg))))
 
 ;; Take and argument and resolve it to a literal value.
 (defn resolve-src [state arg]
-  (if (= (first arg) :literal)
-    (second arg)
-    (get-in state (complete-state-path state arg))))
+  (if (= (first arg) :indirection)
+    (get-in state (complete-state-path state arg))
+    arg))
+
+;; [:indirection [:register :rsp]] -> whatever rsp points to
+
+(defn resolve-indirection [state [type :as arg]]
+  ())
 
 (defn update-path [state path f]
   (update-in state (complete-state-path state path) f))
@@ -57,41 +61,63 @@
 (defmethod process-instruction :default [_ [op]]
   (js/console.log "Can't recognize " (str op) "."))
 
-(defn find-first [coll f] (first (filter f coll)))
-
-;; Check if a value is in the given range
-(defn in-range [range x] (& (>= x (first range)) (<= x (second range))))
-
 ;; Check if index is in the range of the given stack object
-(defn in-stack-object-range [o index] (in-range (:range o) index))
-
-;; Applies f to i if p(i) is true
-(defn update-if [i p f] (if (p i) (f i) (i)))
+(defn in-stack-object-range [o index] (u/in-range (:range o) index))
 
 ;; Get the path of the stack object associated with the given stack index.
 (defn get-stack-object-path [state index] ())
 
 ;; Get the stack objects asociated with the given index
-(defn get-stack-objects [state index] (filter #(in-stack-object-range % index) (get-in state [:memory :stack :indeces])))
+(defn get-stack-objects [state index]
+  (filter #(in-stack-object-range % index) (get-in state [:memory :stack :indices])))
 
 ;; Get the first stack object associated with the given index
-(defn get-stack-object [state index] (first (get-stack-objects state index)))
+(defn get-stack-object [state index]
+  (first (get-stack-objects state index)))
 
 ;; Apply f to the stack object that contains the given index
-(defn update-stack-object [state index f] (update-in state [:memory :stack :indices]
-                                                     (fn [indices] (map (fn [object] (update-if object #(in-stack-object-range % index) f))) indices)))
+(defn update-stack-object [state index f]
+  (update-in state [:memory :stack :indices]
+             (fn [indices] (map (fn [object] (u/update-if object #(in-stack-object-range % index) f))) indices)))
 
 ;; Return true if there is a stack object associated with the given index
 (defn has-stack-object [state index] (not-empty (count (get-stack-objects state index))))
 
-(defn mov2 [state [src dest]]
-  (if (& (= (first dest) :indirection) (= (second dest) :rsp))
-    (-> state
-        (assoc-in (complete-state-path state dest) (resolve-src state src))
-        (assoc-in [:memory :stack :indices] ))))
+(defn get-stack-from-state [state]
+  (get-in state [:memory :stack]))
 
+(defn get-bytes-from-object [state {:keys [range type]}]
+  (let [{:keys [bytes]} (get-stack-from-state state)
+        [s e] range
+        object-bytes (->> bytes
+                          (drop s)
+                          (take (- e s)))]
+    [type object-bytes]))
+
+(defn get-stack-value [state p]
+  (let [object (get-stack-object state p)
+        bytes (get-bytes-from-object state object)]
+    bytes))
+
+(defn bytes-to-number [bytes]
+  ())
+
+(defn resolve [state [type :as arg]]
+  (case type
+    :literal arg
+    :register (get-register-value state (second arg)) ;; -> [:stack 0]
+    :indirection (let [[_ p] (get-register-value state (second arg))]
+                   (get-stack-value state (+ p (nth arg 3))))))
+
+;; something that was on the stack, this will require reaidng the indices
+;; and interpreting them correctly
+;; or the literal actual instruction (:mov arg1 arg2) (almost never do..)
+;;  -- let's forget about this one 
+
+;; src here can only be :register, :literal, :indirection
+;; it can't be :stack or :instruction
 (defn mov [state [src dest]]
-  (assoc-in state (complete-state-path state dest) (resolve-src state src)))
+  (assoc-in state (complete-state-path state dest) (resolve state src)))
 
 (defmethod process-instruction :mov [state [_ src dest]]
   (mov state [src dest]))
@@ -102,7 +128,6 @@
       ;; write the bytes
       (mov [src [:indirection :rsp]])
       ;; add something to the indeces
-      ()
       (add-register [:register :rsp] (* size -1))))
 
 (defmethod process-instruction :push [& args] (push 8 args))
@@ -142,7 +167,7 @@
 
 ;; main stepping function
 (defn step [state] (let [rip (get-register-value state :rip)
-                         ins (get-in state [:memory :program :instructions rip])]
+                         ins (resolve state rip)]
                      (-> state
                          (process-instruction ins)
                          (inc-register [:register :rip]))))
@@ -153,19 +178,22 @@
 (def starting-registers (assoc (->> c/registers-raw
                                     (map (fn [r] [(keyword r) starting-register]))
                                     (into {}))
-                               :rip 0))
+                               :rip [:instruction 0]))
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers
            :flags []
            :memory {:program {:instructions (parse program-input)}
-                    :stack {:bytes []
-                            :indices []}}}))
+                    :stack {:bytes [0 1 2 3 4 5 6 7]
+                            :indices [{:range '(3 7)
+                                       :type :literal}]}}}))
 
 ;; REPL
 (comment
   ;; stub!
   (def state (init-program-state (first assembly-explainer.state/programs)))
+
+  (get-stack-value @state 3)
 
   (swap! state step)
 

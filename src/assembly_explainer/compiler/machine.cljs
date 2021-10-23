@@ -7,7 +7,6 @@
    [goog.string :as gstr]
    [goog.string.format]])
 
-
 ;; Get the value of the register with the given name
 
 
@@ -64,9 +63,6 @@
 ;; Check if index is in the range of the given stack object
 (defn in-stack-object-range [o index] (u/in-range (:range o) index))
 
-;; Get the path of the stack object associated with the given stack index.
-(defn get-stack-object-path [state index] ())
-
 ;; Get the stack objects asociated with the given index
 (defn get-stack-objects [state index]
   (filter #(in-stack-object-range % index) (get-in state [:memory :stack :indices])))
@@ -82,6 +78,17 @@
 
 ;; Return true if there is a stack object associated with the given index
 (defn has-stack-object [state index] (not-empty (count (get-stack-objects state index))))
+
+(defn is-stack-object-invalid [{:keys [range]}]
+  (> (first range) (second range)))
+
+(defn remove-invalid-indices [state]
+  (update-in state [:memory :stack :indices] #(remove is-stack-object-invalid %)))
+
+(defn remove-stack-conflicts [state range])
+
+(defn set-stack-type [state range type] 
+  ())
 
 (defn get-stack-from-state [state]
   (get-in state [:memory :stack]))
@@ -99,15 +106,19 @@
         bytes (get-bytes-from-object state object)]
     bytes))
 
-(defn bytes-to-number [bytes]
-  ())
-
 (defn resolve [state [type :as arg]]
   (case type
     :literal arg
     :register (get-register-value state (second arg)) ;; -> [:stack 0]
     :indirection (let [[_ p] (get-register-value state (second arg))]
                    (get-stack-value state (+ p (nth arg 3))))))
+
+;; Need to update the indices list
+(defn move-into-stack [state [src index] size] 
+  (let [[type value] (resolve state src)]
+    (-> state
+        (update-in [:memory :stack :bytes] u/ensure-length (+ index size))
+        (update-in [:memory :stack :bytes] u/overwrite-range (list index (+ index size)) (u/num-to-bytes value)))))
 
 ;; something that was on the stack, this will require reaidng the indices
 ;; and interpreting them correctly
@@ -118,6 +129,10 @@
 ;; it can't be :stack or :instruction
 (defn mov [state [src dest]]
   (assoc-in state (complete-state-path state dest) (resolve state src)))
+
+;; If the src is an indirection, need to process it down to a value
+;; If the dest is an indirection, need to make it into bytes and push them
+;;  and then update the indices
 
 (defmethod process-instruction :mov [state [_ src dest]]
   (mov state [src dest]))
@@ -186,6 +201,8 @@
            :memory {:program {:instructions (parse program-input)}
                     :stack {:bytes [0 1 2 3 4 5 6 7]
                             :indices [{:range '(3 7)
+                                       :type :literal}
+                                      {:range '(9 8)
                                        :type :literal}]}}}))
 
 ;; REPL
@@ -193,18 +210,22 @@
   ;; stub!
   (def state (init-program-state (first assembly-explainer.state/programs)))
 
+  (remove-invalid-indices @state)
+
+  (update-in @state [:memory :stack :indices] #(remove is-stack-object-invalid %))
+
+  (move-into-stack @state [[:literal 8] 8] 4)
+
+  (u/overwrite-range (get-in @state [:memory :stack :bytes]) '(1, 2) (u/num-to-bytes 8))
+
   (get-stack-value @state 3)
 
   (swap! state step)
 
-  (get-indirection-location @state [:indirection :rsp])
-
-  (complete-state-path state [:indirection :rsp])
-
-  (def v [1 2 3])
-
   (mov @state [[:register :rsp] [:register :rbp]])
   (mov @state [[:literal 1] [:indirection :rsp 1]])
+  )
 
-  @state)
+  @state
+  
 

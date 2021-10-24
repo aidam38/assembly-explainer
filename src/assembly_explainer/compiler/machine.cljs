@@ -43,19 +43,16 @@
 
 ;; [:indirection [:register :rsp]] -> whatever rsp points to
 
-(defn resolve-indirection [state [type :as arg]]
-  ())
-
 (defn update-path [state path f]
   (update-in state (complete-state-path state path) f))
 
 (defn add-register [state register n]
-  (update-path state register #(+ % n)))
+  (update-path state register #(u/add-to-last % n)))
 (def inc-register #(add-register %1 %2 1))
 (def dec-register #(add-register %1 %2 -1))
 
 ;; main processing function
-(defmulti process-instruction (fn [_ [op]] (keyword op)))
+(defmulti process-instruction (fn [_ op] (keyword (first op))))
 
 (defmethod process-instruction :default [_ [op]]
   (js/console.log "Can't recognize " (str op) "."))
@@ -80,15 +77,29 @@
 (defn has-stack-object [state index] (not-empty (count (get-stack-objects state index))))
 
 (defn is-stack-object-invalid [{:keys [range]}]
-  (> (first range) (second range)))
+  (u/is-range-invalid range))
 
-(defn remove-invalid-indices [state]
-  (update-in state [:memory :stack :indices] #(remove is-stack-object-invalid %)))
+;; Return a list of stack objects which were contained 
+(defn uncollide-stack-object [obj a] 
+  (let [{range :range type :type} obj
+        uncollided (u/uncollide-range a range)]
+    (case (count uncollided)
+      0 (list {:range '(0 0) :type type}) ;; Return with an invalid range that will be removed later
+      1 (list {:range (first uncollided) :type type})
+      2 (list {:range (first uncollided) :type type}
+              {:range (second uncollided) :type type}))))
 
-(defn remove-stack-conflicts [state range])
+(defn uncollide-stack-objects [state range] 
+  (-> state
+      (update-in [:memory :stack :indices]
+                 (fn [objs] (map #(uncollide-stack-object % range) objs)))
+      (update-in [:memory :stack :indices] flatten)))
 
-(defn set-stack-type [state range type] 
-  ())
+(defn set-stack-type [state range type]
+  (-> state
+      (uncollide-stack-objects range)
+      (update-in [:memory :stack :indices] conj {:range range :type type})
+      (update-in [:memory :stack :indices] #(remove is-stack-object-invalid %))))
 
 (defn get-stack-from-state [state]
   (get-in state [:memory :stack]))
@@ -101,24 +112,30 @@
                           (take (- e s)))]
     [type object-bytes]))
 
-(defn get-stack-value [state p]
-  (let [object (get-stack-object state p)
-        bytes (get-bytes-from-object state object)]
-    bytes))
+;; Get a value that can be put into a register off of the stack
+(defn get-value-from-stack [state index size]
+  (let [obj (get-stack-object state index)
+        stack (:bytes (get-stack-from-state state))
+        bytes (->> stack
+                   (drop (first (:range obj)))
+                   (take size))]
+    [(:type obj) (u/bytes-to-num bytes)]))
 
-(defn resolve [state [type :as arg]]
+(defn resolve [state [type :as arg] size]
   (case type
     :literal arg
     :register (get-register-value state (second arg)) ;; -> [:stack 0]
-    :indirection (let [[_ p] (get-register-value state (second arg))]
-                   (get-stack-value state (+ p (nth arg 3))))))
+    :indirection (let [[_ register & offset] arg
+                       [_ v] (get-register-value state register)]
+                   (get-value-from-stack state (+ v (nth offset 0 0)) size))))
 
-;; Need to update the indices list
+;; Handles converting to bytes and updating the indices
 (defn move-into-stack [state [src index] size] 
-  (let [[type value] (resolve state src)]
+  (let [[type value] (resolve state src size)]
     (-> state
         (update-in [:memory :stack :bytes] u/ensure-length (+ index size))
-        (update-in [:memory :stack :bytes] u/overwrite-range (list index (+ index size)) (u/num-to-bytes value)))))
+        (update-in [:memory :stack :bytes] u/overwrite-range (list index (+ index size)) (u/num-to-bytes-padded value size))
+        (set-stack-type (list index (+ index size)) type))))
 
 ;; something that was on the stack, this will require reaidng the indices
 ;; and interpreting them correctly
@@ -127,22 +144,21 @@
 
 ;; src here can only be :register, :literal, :indirection
 ;; it can't be :stack or :instruction
-(defn mov [state [src dest]]
-  (assoc-in state (complete-state-path state dest) (resolve state src)))
+(defn mov [size [state [_ src dest]]]
+  (if (and (= (first dest) :indirection) (= (second dest) :rsp))
+    (move-into-stack state [src (+ (second (get-register-value state :rsp)) (nth dest 2 0))] size)
+    (assoc-in state (complete-state-path state dest) (resolve state src size))))
 
 ;; If the src is an indirection, need to process it down to a value
 ;; If the dest is an indirection, need to make it into bytes and push them
 ;;  and then update the indices
 
-(defmethod process-instruction :mov [state [_ src dest]]
-  (mov state [src dest]))
+(defmethod process-instruction :mov [& args] (mov 8 args))
   ;;  (assoc-in state (complete-state-path state dest) (resolve-src state src)))
 
 (defn push [size [state [_ src]]]
   (-> state
-      ;; write the bytes
-      (mov [src [:indirection :rsp]])
-      ;; add something to the indeces
+      (move-into-stack [src (second (get-register-value state :rsp))] size)
       (add-register [:register :rsp] (* size -1))))
 
 (defmethod process-instruction :push [& args] (push 8 args))
@@ -150,11 +166,13 @@
 (defmethod process-instruction :pushl [& args] (push 4 args))
 (defmethod process-instruction :pushw [& args] (push 2 args))
 
-#_(defn pop [] ())
+(defn pop [size [state [_ dest]]]
+  (mov size [(add-register state [:register :rsp] size) ["mov" [:indirection :rsp 0] dest]]))
 
-(defmethod process-instruction :pop [state [_ dest]] (-> state
-                                                         (inc-register [:register :rsp])
-                                                         (mov [[:indirection :rsp] dest])))
+(defmethod process-instruction :pop [& args] (pop 8 args))
+(defmethod process-instruction :popq [& args] (pop 8 args))
+(defmethod process-instruction :popl [& args] (pop 4 args))
+(defmethod process-instruction :popw [& args] (pop 2 args))
 
 (defmethod process-instruction :add [state [src dest]] (let [dest-path (complete-state-path state dest)
                                                              src-path  (complete-state-path state src)]
@@ -182,7 +200,7 @@
 
 ;; main stepping function
 (defn step [state] (let [rip (get-register-value state :rip)
-                         ins (resolve state rip)]
+                         ins (get-in state [:memory :program :instructions (second rip)])]
                      (-> state
                          (process-instruction ins)
                          (inc-register [:register :rip]))))
@@ -193,39 +211,23 @@
 (def starting-registers (assoc (->> c/registers-raw
                                     (map (fn [r] [(keyword r) starting-register]))
                                     (into {}))
-                               :rip [:instruction 0]))
+                               :rip [:instruction 0]
+                               :rsp [:stack 8]))
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers
            :flags []
            :memory {:program {:instructions (parse program-input)}
-                    :stack {:bytes [0 1 2 3 4 5 6 7]
-                            :indices [{:range '(3 7)
-                                       :type :literal}
-                                      {:range '(9 8)
-                                       :type :literal}]}}}))
+                    :stack {:bytes [0 0 0 0 0 0 0 1]
+                            :indices [{:range '(0 16) :type :literal}]}}}))
 
 ;; REPL
 (comment
   ;; stub!
   (def state (init-program-state (first assembly-explainer.state/programs)))
-
-  (remove-invalid-indices @state)
-
-  (update-in @state [:memory :stack :indices] #(remove is-stack-object-invalid %))
-
-  (move-into-stack @state [[:literal 8] 8] 4)
-
-  (u/overwrite-range (get-in @state [:memory :stack :bytes]) '(1, 2) (u/num-to-bytes 8))
-
-  (get-stack-value @state 3)
-
-  (swap! state step)
-
-  (mov @state [[:register :rsp] [:register :rbp]])
-  (mov @state [[:literal 1] [:indirection :rsp 1]])
-  )
-
-  @state
   
-
+  (process-instruction @state ["push" [:literal 1]])
+  (process-instruction @state ["popl" [:register :rax]])
+  (move-into-stack @state [[:register :rsp] (second (get-register-value @state :rsp))] 8)
+  (mov 8 [@state ["mov" [:register :rsp] [:indirection :rsp 8]]])
+  )

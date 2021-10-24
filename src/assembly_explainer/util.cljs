@@ -12,6 +12,10 @@
 ;; Check if a value is in the given range
 (defn in-range [range x] (and (>= x (first range)) (<= x (second range))))
 
+;; Check if range a contains range b
+(defn range-contains-range [a b]
+  (and (in-range a (first b)) (in-range a (second b))))
+
 ;; Little endian bytes to number
 (defn bytes-to-num [bytes]
   (let [byte-count (count bytes)]
@@ -25,6 +29,12 @@
   (if (= n 0)
     []
     (conj (num-to-bytes (Math/floor (/ n 256))) (mod n 256))))
+
+;; Convert number to little endian bytes with
+;; padding for high place values.
+(defn num-to-bytes-padded [n len] 
+  (let [bytes (num-to-bytes n)]
+    (concat (take (- len (count bytes)) (repeat 0)) bytes)))
 
 ;; Turn a number into a base 16 string
 (def digits "0123456789ABCDEF")
@@ -41,10 +51,22 @@
                    (nth b (- idx (first range)) 0)
                    item)) a))
 
-(def items (take 20 (repeat (rand))))
+;; If the length of coll is less than len, pad it with
+;;  zeros so that its length is equal to len
+(defn ensure-length [coll len]
+  (if (< (count coll) len)
+    (concat coll (take (- len (count coll)) (repeat 0)))
+    coll))
 
-(overwrite-range items '(0, 8) [1 1])
-(number-to-hex-string 23)
+(defn is-range-invalid [range]
+  (>= (first range) (second range)))
 
-(bytes-to-num [6 103])
-(num-to-bytes 1639)
+;; Return ranges which were subranges of b
+;;  such that none of them overlap with range a
+(defn uncollide-range [a b]
+  (cond
+    (range-contains-range a b) '()
+    (range-contains-range b a) (list (list (first b) (first a)) (list (second a) (second b)))
+    (in-range b (first a)) (list (list (first b) (first a)))
+    (in-range b (second a)) (list (list (second a) (second b)))
+    :else b))

@@ -27,7 +27,8 @@
 (defn get-ast [code-struct]
   (i/transform
    {:ins (fn [[_ opcode] [_ & args]] (concat [opcode] args))
-    :arg (fn [type] type)}
+    :arg (fn [type] type)
+    :indirection (fn [[_ offset] [_ register]] [:indirection (:keyword register) (js/parseInt offset)])}
    (vec (rest code-struct))))
 
 (defn parse [{:keys [code]}]

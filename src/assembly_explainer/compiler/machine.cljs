@@ -80,7 +80,7 @@
   (u/is-range-invalid range))
 
 ;; Return a list of stack objects which were contained 
-(defn uncollide-stack-object [obj a] 
+(defn uncollide-stack-object [obj a]
   (let [{range :range type :type} obj
         uncollided (u/uncollide-range a range)]
     (case (count uncollided)
@@ -89,7 +89,7 @@
       2 (list {:range (first uncollided) :type type}
               {:range (second uncollided) :type type}))))
 
-(defn uncollide-stack-objects [state range] 
+(defn uncollide-stack-objects [state range]
   (-> state
       (update-in [:memory :stack :indices]
                  (fn [objs] (map #(uncollide-stack-object % range) objs)))
@@ -130,7 +130,7 @@
                    (get-value-from-stack state (+ v (nth offset 0 0)) size))))
 
 ;; Handles converting to bytes and updating the indices
-(defn move-into-stack [state [src index] size] 
+(defn move-into-stack [state [src index] size]
   (let [[type value] (resolve state src size)]
     (-> state
         (update-in [:memory :stack :bytes] u/ensure-length (+ index size))
@@ -224,10 +224,9 @@
 ;; REPL
 (comment
   ;; stub!
-  (def state (init-program-state (first assembly-explainer.state/programs)))
-  
+  (def state (init-program-state (nth assembly-explainer.state/programs 2)))
+
   (process-instruction @state ["push" [:literal 1]])
   (process-instruction @state ["popl" [:register :rax]])
   (move-into-stack @state [[:register :rsp] (second (get-register-value @state :rsp))] 8)
-  (mov 8 [@state ["mov" [:register :rsp] [:indirection :rsp 8]]])
-  )
+  (mov 8 [@state ["mov" [:register :rsp] [:indirection :rsp 8]]]))

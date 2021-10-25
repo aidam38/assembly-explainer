@@ -212,20 +212,20 @@
                                     (map (fn [r] [(keyword r) starting-register]))
                                     (into {}))
                                :rip [:instruction 0]
-                               :rsp [:stack 8]))
+                               :rsp [:stack 0]))
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers
            :flags []
            :memory {:program {:instructions (parse program-input)}
-                    :stack {:bytes [0 0 0 0 0 0 0 1]
-                            :indices [{:range '(0 16) :type :literal}]}}}))
+                    :stack {:bytes []
+                            :indices []}}}))
 
 ;; REPL
 (comment
   ;; stub!
   (def state (init-program-state (nth assembly-explainer.state/programs 2)))
-
+  (swap! state step)
   (process-instruction @state ["push" [:literal 1]])
   (process-instruction @state ["popl" [:register :rax]])
   (move-into-stack @state [[:register :rsp] (second (get-register-value @state :rsp))] 8)

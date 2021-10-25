@@ -10,8 +10,12 @@
    {:on-click #(dispatch [:step])}
    "Step!"])
 
-(defn arg-comp [[type value]]
-  [:div value])
+(defn arg-comp [[type value & [offset]]]
+  (case type
+    :literal [:div "$" value]
+    :register [:div "%" value]
+    :indirection [:div "$" offset "(%" value ")"]
+    :default [:div value]))
 
 (defn ins-comp [[opcode & args]]
   [:div.flex.p-2

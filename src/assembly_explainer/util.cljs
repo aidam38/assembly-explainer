@@ -10,7 +10,7 @@
   (update coll (dec (count coll)) #(+ % x)))
 
 ;; Check if a value is in the given range
-(defn in-range [range x] (and (>= x (first range)) (<= x (second range))))
+(defn in-range [range x] (and (>= x (first range)) (< x (second range))))
 
 ;; Check if range a contains range b
 (defn range-contains-range [a b]

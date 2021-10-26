@@ -229,4 +229,11 @@
   (process-instruction @state ["push" [:literal 1]])
   (process-instruction @state ["popl" [:register :rax]])
   (move-into-stack @state [[:register :rsp] (second (get-register-value @state :rsp))] 8)
-  (mov 8 [@state ["mov" [:register :rsp] [:indirection :rsp 8]]]))
+
+  (-> @state
+      (process-instruction ["mov" [:literal 1] [:indirection :rsp 8]])
+      (process-instruction ["mov" [:literal 2] [:indirection :rsp 0]])
+      (process-instruction ["mov" [:indirection :rsp 0] [:register :rax]])
+      (process-instruction ["mov" [:indirection :rsp 8] [:register :rbx]]))
+  
+  )

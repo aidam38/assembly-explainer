@@ -40,6 +40,15 @@
 #_(def literal (let [[src dest] (let [[op & args] (first ast)] args)] src))
 
 (comment
-  (assembly-parser "mov $42, %rbx
+  (def test-program {:code 
+                     
+"mov $42, %rbx
+mov %rbx,$0(%rsp)
 push %rbx
-pop %rax"))
+pop %rax"     
+                     
+})
+  (assembly-parser (:code test-program))
+  (parse test-program)
+
+)

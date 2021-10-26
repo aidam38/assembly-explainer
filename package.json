@@ -1,5 +1,8 @@
 {
   "scripts": {
+    "dev": "npx shadow-cljs watch app",
+    "compile": "npx shadow-cljs compile app",
+    "release": "npx shadow-cljs release app",
     "tw": "npx tailwind build resources/tw/style.css -o resources/public/app.css --no-autoprefixer",
     "watch:css": "onchange 'resources/tw/*css' -- npm run tw"
   },

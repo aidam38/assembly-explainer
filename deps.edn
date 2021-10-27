@@ -12,5 +12,6 @@
            reagent/reagent           {:mvn/version "1.1.0"}
            org.clojure/clojurescript {:mvn/version "RELEASE"}
            thheller/shadow-cljs      {:mvn/version "2.14.6"}
-           instaparse/instaparse     {:mvn/version "1.4.10"}}
+           instaparse/instaparse     {:mvn/version "1.4.10"}
+           to.fluent/heroicons-clojure {:mvn/version "1.0.4"}}
  :paths   ["src" "resources"  "test/cljs"]}

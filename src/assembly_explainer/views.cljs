@@ -5,7 +5,8 @@
    [assembly-explainer.compiler.machine :as m]
    [assembly-explainer.subs :as s]
    [cljs.pprint]
-   [assembly-explainer.icons.heroicons :as hi]))
+   [to.fluent.heroicons-clojure.reagent.outline.chevron-right :refer [chevron-right]]
+   [to.fluent.heroicons-clojure.reagent.outline.chevron-left :refer [chevron-left]]))
 
 (defn step-forward-button [{:keys [app-state]}]
   [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none
@@ -55,7 +56,7 @@
 (defn stack-comp [{:keys [app-state]}]
   (r/with-let [{:keys [program-state]} @app-state]
     (let [{:keys [bytes indices] :as stack} @(r/cursor program-state [:stack])]
-      [:div.bg-gray-900.mb-2.divide-y-2.divide-gray-50
+      [:div.bg-gray-900.mb-2.divide-y-2.divide-gray-50.h-64
        (for [object indices
              :let [dobject (m/deref-stack-object bytes object)]]
          ^{:key (hash bytes)} [stack-item-comp dobject])])))
@@ -67,19 +68,26 @@
 
 (defn registers-comp [{:keys [app-state]}]
   (r/with-let [registers (r/cursor (:program-state @app-state) [:registers])]
-    [:div.bg-gray-900.p-2
+    [:div.bg-gray-900.p-2.h-32
      (for [[name val :as reg] @registers
            :when val]
        ^{:key name} [reg-comp reg])]))
 
 (defn header [{:keys [app-state]}]
   (r/with-let [name (r/cursor app-state [:program-input :name])]
-    [:div.flex.justify-center
-     [:h1.text-xl @name]]))
+    [:div.flex.justify-between.items-center.mb-2
+     [:div.flex.items-center
+      [:button.pr-2
+       {:on-click #()}
+       [:div.h-6.w-6 chevron-left]]
+      [:h1.text-xl @name]]
+     [:div
+      [:button
+       {:on-click #()}
+       [:div.h-6.w-6 chevron-right]]]]))
 
 (defn dashboard [ctx]
   [:div.bg-gray-700.rounded-lg.p-4.text-gray-50
-   [header ctx]
    [:div.flex.py-4
     [:div.p-2 {:class "w-1/2"}
      [program-comp ctx]]
@@ -92,6 +100,7 @@
   [:div.h-screen.bg-gray-500
    [:div.container.max-w-screen-md.mx-auto
     [:div.pt-10
+     [header ctx]
      [dashboard ctx]]
     (when true
       [:div.text-gray-100

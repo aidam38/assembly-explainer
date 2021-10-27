@@ -1,12 +1,13 @@
 (ns assembly-explainer.events
   (:require
-   [assembly-explainer.state :refer [ctx]]
-   [assembly-explainer.compiler.machine :as compiler]))
+   [assembly-explainer.state :refer [ctx] :as s]
+   [assembly-explainer.compiler.machine :as compiler]
+   [reitit.frontend.controllers :as rfc]))
 
 (defmulti handle-event (fn [_ [ev-type]] ev-type))
 
 (defn dispatch [event]
-  (handle-event ctx event))
+  (handle-event @ctx event))
 
 (defmethod handle-event :reset-program-state-history [{:keys [app-state]}]
   (swap! app-state assoc :program-state-history [])
@@ -26,3 +27,13 @@
 (defmethod handle-event :step-program-state [{:keys [app-state]}]
   (dispatch [:store-program-state-history])
   (swap! (:program-state @app-state) compiler/step))
+
+(defmethod handle-event :initialize-app-state [{:keys [app-state]} p]
+  (reset! app-state (s/starting-app-state p))
+  (dispatch [:initialize-program-state]))
+
+(defmethod handle-event :navigated
+  [ctx [_ new-match]]
+  (let [old-match   (:route ctx)
+        controllers (rfc/apply-controllers (:controllers old-match) new-match)]
+    (swap! ctx assoc :route (assoc new-match :controllers controllers))))

@@ -3,12 +3,13 @@
             [assembly-explainer.state :refer [ctx]]
             [assembly-explainer.views :refer [main]]
             [assembly-explainer.events :refer [dispatch]]
+            [assembly-explainer.routes :as routes]
             [assembly-explainer.state]
             [assembly-explainer.keyboard]
             [goog.dom :as gdom]))
 
 (defn mount-root []
-  (rdom/render [main ctx] (.getElementById js/document "app")))
+  (rdom/render [main @ctx] (.getElementById js/document "app")))
 
 (defn ^:dev/after-load clear-cache-and-render!
   []
@@ -19,7 +20,8 @@
 
 (defn ^:export init []
   #_(initialize-keyboard)
-  (dispatch [:initialize-program-state])
+  (dispatch [:initialize-app-state 0])
+  (routes/init-routes!)
   (dev-init))
 
 

@@ -12,6 +12,7 @@
            reagent/reagent           {:mvn/version "1.1.0"}
            org.clojure/clojurescript {:mvn/version "RELEASE"}
            thheller/shadow-cljs      {:mvn/version "2.14.6"}
+           metosin/reitit            {:mvn/version "0.5.13"}
            instaparse/instaparse     {:mvn/version "1.4.10"}
            to.fluent/heroicons-clojure {:mvn/version "1.0.4"}}
  :paths   ["src" "resources"  "test/cljs"]}

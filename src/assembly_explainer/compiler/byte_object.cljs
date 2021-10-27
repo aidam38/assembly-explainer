@@ -10,8 +10,8 @@
 (defn in-element-range [o index] (u/in-range (:range o) index))
 
 ;; Get the stack objects asociated with the given index
-(defn get-elements [{:keys [obj]} index]
-  (filter #(in-element-range % index) (:indices obj)))
+(defn get-elements [obj index]
+  (filter #(in-element-range % index) (:meta obj)))
 
 ;; Get the first stack object associated with the given index
 (defn get-element [obj index]
@@ -69,6 +69,10 @@
         (set-meta {:range range :type type}))))
 
 (comment
+  (-> empty-object
+      (move-into [:literal 8] 0 8)
+      (get-elements 0))
+  
   (set-meta test-object {:range '(2 4) :type :literal})
 
   (uncollide-elements test-object '(2 4))

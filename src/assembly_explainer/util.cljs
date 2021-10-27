@@ -28,7 +28,7 @@
 (defn num-to-bytes [n]
   (if (= n 0)
     []
-    (conj (num-to-bytes (Math/floor (/ n 256))) (mod n 256))))
+    (conj (num-to-bytes (int (/ n 256))) (rem n 256))))
 
 ;; Convert number to little endian bytes with
 ;; padding for high place values.

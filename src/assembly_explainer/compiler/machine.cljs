@@ -13,6 +13,9 @@
 (defn get-register-value [state name]
   (bobj/get-value-at-index (get-in state [:registers (keyword name)]) 0 8))
 
+(defn set-register-value [state name value size] 
+  (update-in state [:registers name] bobj/move-into value 0 size))
+
 ;; Compute the location an expression like '0x5(%rsp)' points to.
 (defn get-indirection-location [state [_ & location]]
   (let [base-value (get-register-value state (first location))]
@@ -33,7 +36,7 @@
   (update-in state (complete-state-path state path) f))
 
 (defn add-register [state register n]
-  (update-path state register #(u/add-to-last % n)))
+  (set-register-value state register (u/add-to-last (get-register-value state register) n) 8))
 (def inc-register #(add-register %1 %2 1))
 (def dec-register #(add-register %1 %2 -1))
 
@@ -57,7 +60,7 @@
 (defn mov [size [state [_ src dest]]]
   (let [src-val (resolve state src size)]
     (case (first dest)
-      :register (update-in state [:registers (second dest)] bobj/move-into src-val 0 size)
+      :register (set-register-value state (second dest) src-val size)
       :indirection (let [index (+ (second (get-register-value state :rsp)) (nth dest 2 0))]
                      (update state :stack bobj/move-into src-val index size)))))
 
@@ -72,7 +75,7 @@
   (let [src-val (resolve state src size)
         index (second (get-register-value state :rsp))]
     (-> state
-        (update state :stack bobj/move-into src-val index size)
+        (update :stack bobj/move-into src-val index size)
         (add-register [:register :rsp] (* size -1)))))
 
 (defmethod process-instruction :push [& args] (push 8 args))
@@ -113,11 +116,11 @@
 (defmethod process-instruction :jmp [state [label]] ())
 
 ;; main stepping function
-(defn step [state] (let [[_ ripval] (get-register-value state :rip)
+(defn step [state] (let [[_ ripval] (second (get-register-value state :rip))
                          ins (get-in state [:instructions ripval])]
                      (-> state
                          (process-instruction ins)
-                         (inc-register [:register :rip]))))
+                         (inc-register :rip))))
 
 ;; initializing the program state
 ;; Starting register is a byte object with 8 bytes of zeros
@@ -141,10 +144,22 @@
   (def state (init-program-state (nth assembly-explainer.state/programs 2)))
   @state
 
+  (get-register-value @state :rsp)
+
+  (bobj/get-value-at-index (get-in @state [:registers :rsp]) 0 8)
+  (def obj (bobj/move-into bobj/empty-object [:literal 8] 0 8))
+  (bobj/has-element obj 0)
+  (bobj/move-into bobj/empty-object [:literal 0] 0 8)
+
+  (push 8 [@state ["_" [:literal 8]]])
+  
+  (set-register-value @state :rsp (u/add-to-last (get-register-value @state :rsp) -1) 8)
+  (dec-register @state :rsp)
+  
   (swap! state step)
   (process-instruction @state ["push" [:literal 1]])
   (process-instruction @state ["popl" [:register :rax]])
-  (process-instruction @state ["mov" [:literal 1] [:register :rax]])
+  (process-instruction @state ["mov" [:literal 1] [:indirection :rsp]])
 
   (-> @state
       (process-instruction ["mov" [:literal 1] [:indirection :rsp 8]])

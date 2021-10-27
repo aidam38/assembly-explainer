@@ -28,24 +28,28 @@
 (defn val-comp [[type value & [offset]]]
   (case type
     :literal [:div "$" value]
-    :register [:div "%" value]
+    :register [:div.text-green-500 "%" value]
     :indirection [:div "$" offset "(%" value ")"]
     :instruction [:div value]
     [:div (pr-str value)]))
 
-(defn ins-comp [[opcode & args]]
-  [:div.flex.p-2
-   [:div.mr-8
-    opcode]
-   [:div.flex.space-x-2
-    (for [arg args]
-      ^{:key arg} [val-comp arg])]])
+(defn ins-comp [[opcode & args] i]
+  [:div.relative
+   [:div.absolute.text-gray-400.text-xs i]
+   [:div.absolute.right-0.text-gray-400.text-xs i]
+   [:div.flex.p-2.ml-3
+    [:div.w-10.mr-4
+     opcode]
+    [:div.flex.space-x-2
+     (interpose ", "
+                (for [arg args]
+                  ^{:key arg} [val-comp arg]))]]])
 
 (defn program-comp [{:keys [app-state]}]
   (r/with-let [instructions (r/cursor (:program-state @app-state) [:instructions])]
-    [:div.bg-gray-900
-     (for [ins @instructions]
-       ^{:key (hash ins)} [ins-comp ins])]))
+    [:div.bg-gray-900.rounded.divide-y-2.divide-gray-500
+     (for [[i ins] (map-indexed vector @instructions)]
+       ^{:key (hash ins)} [ins-comp ins i])]))
 
 (defn stack-item-comp [{:keys [value bytes]}]
   (js/console.log (pr-str value))
@@ -56,19 +60,19 @@
 (defn stack-comp [{:keys [app-state]}]
   (r/with-let [{:keys [program-state]} @app-state]
     (let [{:keys [bytes indices] :as stack} @(r/cursor program-state [:stack])]
-      [:div.bg-gray-900.mb-2.divide-y-2.divide-gray-50.h-64
+      [:div.bg-gray-900.mb-2.divide-y-2.divide-gray-50.h-64.rounded
        (for [object indices
              :let [dobject (m/deref-stack-object bytes object)]]
          ^{:key (hash bytes)} [stack-item-comp dobject])])))
 
 (defn reg-comp [[name value]]
   [:div.flex
-   [:div.mr-2 name]
+   [:div.mr-2 "%" name]
    [val-comp value]])
 
 (defn registers-comp [{:keys [app-state]}]
   (r/with-let [registers (r/cursor (:program-state @app-state) [:registers])]
-    [:div.bg-gray-900.p-2.h-32
+    [:div.bg-gray-900.p-2.h-32.rounded
      (for [[name val :as reg] @registers
            :when val]
        ^{:key name} [reg-comp reg])]))
@@ -76,7 +80,7 @@
 (defn header [{:keys [app-state]}]
   (r/with-let [name (r/cursor app-state [:program-input :name])]
     [:div.flex.justify-between.items-center.mb-2
-     [:div.flex.items-center
+     [:div.flex.items-start
       [:button.pr-2
        {:on-click #()}
        [:div.h-6.w-6 chevron-left]]
@@ -97,12 +101,12 @@
    [buttons ctx]])
 
 (defn main [ctx]
-  [:div.h-screen.bg-gray-500
+  [:div.h-screen.bg-gray-500.font-mono
    [:div.container.max-w-screen-md.mx-auto
     [:div.pt-10
      [header ctx]
      [dashboard ctx]]
-    (when true
+    (when false
       [:div.text-gray-100
        [:pre.pt-24 (with-out-str (cljs.pprint/pprint @(:app-state ctx)))]
        [:pre.pt-10 (with-out-str (cljs.pprint/pprint @(:program-state @(:app-state ctx))))]])]])

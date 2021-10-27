@@ -1,6 +1,8 @@
 (ns assembly-explainer.compiler.byte-object
   [:require [assembly-explainer.util :as u]])
 
+(def empty-object {:bytes [] :meta []})
+
 (def test-object {:bytes [0 0 0 0]
                   :meta [{:range '(0 4) :type :literal}]})
 
@@ -43,22 +45,16 @@
               (fn [elements] (map #(uncollide-element % range) elements)))
       (update :meta flatten)))
 
-(defn spy [x]
-  (println x)
-  x)
-
 ;; Set the meta data for the specified range.
 (defn set-meta [obj {:keys [range] :as meta}]
   (-> obj
       (uncollide-elements range)
       (update :meta conj meta)
-      (spy)
-      (update :meta #(remove is-element-invalid %))
-      (spy)))
+      (update :meta #(remove is-element-invalid %))))
 
 ;; Get a value that can be put into a register off of the stack.
 ;; Basically just includes the type information w/ the requested bytes.
-(defn get-values-at-index [obj index size]
+(defn get-value-at-index [obj index size]
   (let [element (get-element obj index)
         target-bytes (->> (:bytes obj)
                           (drop (first (:range element)))
@@ -72,19 +68,17 @@
         (update :bytes u/overwrite-range range (u/num-to-bytes-padded value size))
         (set-meta {:range range :type type}))))
 
-(let [range [8 (+ 8 8)]]
-  (-> test-object
-      (update :bytes u/ensure-length (second range))
-      (update :bytes u/overwrite-range range (u/num-to-bytes-padded 0 8))
-      (set-meta {:range range :type type})))
+(comment
+  (set-meta test-object {:range '(2 4) :type :literal})
 
-(let [range [8 (+ 8 8)]]
-  (update test-object :bytes u/ensure-length (second range)))
+  (uncollide-elements test-object '(2 4))
 
-(set-meta test-object {:range '(2 4) :type :literal})
-(uncollide-elements test-object '(2 4))
-(update test-object :bytes u/overwrite-range '(2 4) [1 2])
-(update test-object :bytes u/ensure-length 16)
-(set-meta test-object {:range '(2 4)})
-(u/num-to-bytes-padded 0 8)
-(move-into test-object [:literal 21821241235] 8 8)
+  (update test-object :bytes u/overwrite-range '(2 4) [1 2])
+
+  (update test-object :bytes u/ensure-length 16)
+
+  (set-meta test-object {:range '(2 4)})
+
+  (u/num-to-bytes-padded 0 8)
+
+  (move-into test-object [:literal 21821241235] 8 8))

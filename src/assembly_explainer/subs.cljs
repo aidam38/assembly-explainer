@@ -1,6 +1,7 @@
 (ns assembly-explainer.subs
   [:require [reagent.core :as r]
-   [assembly-explainer.state :refer [app-state]]])
+   [assembly-explainer.state :refer [app-state]]
+   [assembly-explainer.compiler.byte-object :as bobj]])
 
 (def program-state
   (r/track
@@ -26,3 +27,14 @@
   (r/track
    (fn _ []
      (zero? @current-instruction))))
+
+(def get-backlinks-of
+  (partial
+   r/track
+   (fn _ [value]
+     (->> (:registers @program-state)
+          (filter
+           #(let [[name reg] %
+                  val (bobj/get-value-at-index reg 0 8)]
+              (= value val)))
+          (map (fn [[n _]] [:register n]))))))

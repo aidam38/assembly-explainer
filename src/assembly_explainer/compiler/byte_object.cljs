@@ -61,6 +61,9 @@
                           (take size))]
     [(:type element) (u/bytes-to-num target-bytes)]))
 
+(defn get-value-from-meta [obj {[s e] :range}]
+  (get-value-at-index obj s (- e s)))
+
 (defn move-into [obj [type value] index size]
   (let [range [index (+ index size)]]
     (-> obj
@@ -72,7 +75,7 @@
   (-> empty-object
       (move-into [:literal 8] 0 8)
       (get-elements 0))
-  
+
   (set-meta test-object {:range '(2 4) :type :literal})
 
   (uncollide-elements test-object '(2 4))

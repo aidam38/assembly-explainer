@@ -13,7 +13,7 @@
 (defn get-register-value [state name]
   (bobj/get-value-at-index (get-in state [:registers (keyword name)]) 0 8))
 
-(defn set-register-value [state name value size] 
+(defn set-register-value [state name value size]
   (update-in state [:registers (keyword name)] bobj/move-into value 0 size))
 
 ;; Compute the location an expression like '0x5(%rsp)' points to.
@@ -126,12 +126,12 @@
 
 ;; initializing the program state
 ;; Starting register is a byte object with 8 bytes of zeros
-(def starting-register (bobj/move-into bobj/empty-object [:literal 0] 0 8))
+(def starting-register (bobj/move-into bobj/empty-object [nil 0] 0 8))
 
 (def starting-registers (assoc (->> c/registers-raw
                                     (map (fn [r] [(keyword r) starting-register]))
                                     (into {}))
-                               :rip (bobj/move-into bobj/empty-object [:literal 0] 0 8)
+                               :rip (bobj/move-into bobj/empty-object [:ins 0] 0 8)
                                :rsp (bobj/move-into bobj/empty-object [:literal 0] 0 8)))
 
 (defn init-program-state [program-input]
@@ -145,7 +145,7 @@
   ;; stub!
   (def state (init-program-state (nth assembly-explainer.state/programs 1)))
   @state
-  
+
   (swap! state step)
   (process-instruction @state ["push" [:literal 1]])
   (process-instruction @state ["popl" [:register :rax]])

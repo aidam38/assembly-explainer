@@ -9,7 +9,8 @@
                 :tailwind/output  "resources/public/app.css"
                 :tailwind/files   {:base-path "./."
                                    :tailwind.css "./resources/tw/style.css"}
-                :compiler-options {:infer-externs :auto}
+                :compiler-options {:infer-externs :auto
+                                   :warnings {:redef false}}
                 :modules          {:main {:entries [assembly-explainer.core]
                                           :init-fn assembly-explainer.core/init}}
 

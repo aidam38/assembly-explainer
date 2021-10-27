@@ -61,8 +61,8 @@
 (defn in-stack-object-range [o index] (u/in-range (:range o) index))
 
 ;; Get the stack objects asociated with the given index
-(defn get-stack-objects [state index]
-  (filter #(in-stack-object-range % index) (get-in state [:memory :stack :indices])))
+(defn get-stack-objects [{:keys [stack]} index]
+  (filter #(in-stack-object-range % index) (:indices stack)))
 
 ;; Get the first stack object associated with the given index
 (defn get-stack-object [state index]
@@ -70,7 +70,7 @@
 
 ;; Apply f to the stack object that contains the given index
 (defn update-stack-object [state index f]
-  (update-in state [:memory :stack :indices]
+  (update-in state [:stack :indices]
              (fn [indices] (map (fn [object] (u/update-if object #(in-stack-object-range % index) f))) indices)))
 
 ;; Return true if there is a stack object associated with the given index
@@ -91,35 +91,47 @@
 
 (defn uncollide-stack-objects [state range]
   (-> state
-      (update-in [:memory :stack :indices]
+      (update-in [:stack :indices]
                  (fn [objs] (map #(uncollide-stack-object % range) objs)))
-      (update-in [:memory :stack :indices] flatten)))
+      (update-in [:stack :indices] flatten)))
 
 (defn set-stack-type [state range type]
   (-> state
       (uncollide-stack-objects range)
-      (update-in [:memory :stack :indices] conj {:range range :type type})
-      (update-in [:memory :stack :indices] #(remove is-stack-object-invalid %))))
+      (update-in [:stack :indices] conj {:range range :type type})
+      (update-in [:stack :indices] #(remove is-stack-object-invalid %))))
 
 (defn get-stack-from-state [state]
-  (get-in state [:memory :stack]))
+  (get-in state [:stack]))
 
-(defn get-bytes-from-object [state {:keys [range type]}]
-  (let [{:keys [bytes]} (get-stack-from-state state)
-        [s e] range
-        object-bytes (->> bytes
-                          (drop s)
-                          (take (- e s)))]
-    [type object-bytes]))
+(defn get-bytes-from-object [{:keys [stack]} {:keys [range]}]
+  (let [{:keys [bytes]} stack
+        [s e] range]
+    (->> bytes
+         (drop s)
+         (take (- e s)))))
+
+(defn get-value-from-object [state {:keys [type] :as object}]
+  [type (u/bytes-to-num (get-bytes-from-object state object))])
 
 ;; Get a value that can be put into a register off of the stack
-(defn get-value-from-stack [state index size]
+(defn get-value-from-stack [{:keys [stack] :as state} index size]
   (let [obj (get-stack-object state index)
-        stack (:bytes (get-stack-from-state state))
+        stack (:bytes stack)
         bytes (->> stack
                    (drop (first (:range obj)))
                    (take size))]
     [(:type obj) (u/bytes-to-num bytes)]))
+
+(defn deref-stack-object [stack-bytes {:keys [range type] :as object}]
+  (let [[s e] range
+        bytes (->> stack-bytes
+                   (drop s)
+                   (take (- e s)))
+        val (u/bytes-to-num bytes)]
+    (merge object
+           {:bytes bytes
+            :value [type val]})))
 
 (defn resolve [state [type :as arg] size]
   (case type
@@ -133,8 +145,8 @@
 (defn move-into-stack [state [src index] size]
   (let [[type value] (resolve state src size)]
     (-> state
-        (update-in [:memory :stack :bytes] u/ensure-length (+ index size))
-        (update-in [:memory :stack :bytes] u/overwrite-range (list index (+ index size)) (u/num-to-bytes-padded value size))
+        (update-in [:stack :bytes] u/ensure-length (+ index size))
+        (update-in [:stack :bytes] u/overwrite-range (list index (+ index size)) (u/num-to-bytes-padded value size))
         (set-stack-type (list index (+ index size)) type))))
 
 ;; something that was on the stack, this will require reaidng the indices
@@ -199,8 +211,8 @@
 (defmethod process-instruction :jmp [state [label]] ())
 
 ;; main stepping function
-(defn step [state] (let [rip (get-register-value state :rip)
-                         ins (get-in state [:memory :program :instructions (second rip)])]
+(defn step [state] (let [[_ ripval] (get-register-value state :rip)
+                         ins (get-in state [:instructions ripval])]
                      (-> state
                          (process-instruction ins)
                          (inc-register [:register :rip]))))
@@ -217,9 +229,9 @@
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers
            :flags []
-           :memory {:program {:instructions (parse program-input)}
-                    :stack {:bytes []
-                            :indices []}}}))
+           :instructions (parse program-input)
+           :stack {:bytes []
+                   :indices []}}))
 
 ;; REPL
 (comment
@@ -234,6 +246,4 @@
       (process-instruction ["mov" [:literal 1] [:indirection :rsp 8]])
       (process-instruction ["mov" [:literal 2] [:indirection :rsp 0]])
       (process-instruction ["mov" [:indirection :rsp 0] [:register :rax]])
-      (process-instruction ["mov" [:indirection :rsp 8] [:register :rbx]]))
-  
-  )
+      (process-instruction ["mov" [:indirection :rsp 8] [:register :rbx]])))

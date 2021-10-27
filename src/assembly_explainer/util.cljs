@@ -32,7 +32,7 @@
 
 ;; Convert number to little endian bytes with
 ;; padding for high place values.
-(defn num-to-bytes-padded [n len] 
+(defn num-to-bytes-padded [n len]
   (let [bytes (num-to-bytes n)]
     (concat (take (- len (count bytes)) (repeat 0)) bytes)))
 
@@ -66,7 +66,7 @@
 (defn uncollide-range [a b]
   (cond
     (range-contains-range a b) '()
-    (range-contains-range b a) (list (list (first b) (first a)) (list (second a) (second b)))
-    (in-range b (first a)) (list (list (first b) (first a)))
-    (in-range b (second a)) (list (list (second a) (second b)))
-    :else b))
+    (range-contains-range b a) [[(first b) (first a)] [(second a) (second b)]]
+    (in-range b (first a)) [[(first b) (first a)]]
+    (in-range b (second a)) [[(second a) (second b)]]
+    :else [b]))

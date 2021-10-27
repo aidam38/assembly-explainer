@@ -5,11 +5,14 @@
 
 (def programs (expand-programs ["test1" "test2" "test3"]))
 
-(defn starting-app-state [p]
-  {:program-input (nth programs p)
+(def program-names (keys programs))
+
+(defn starting-app-state [name]
+  {:route "test1"
+   :program-input (get programs name)
    :program-state nil
    :program-state-history []})
 
 (def app-state (r/atom {}))
 
-(def ctx (r/atom {:app-state app-state}))
+(def ctx {:app-state app-state})

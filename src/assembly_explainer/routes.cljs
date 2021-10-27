@@ -2,15 +2,23 @@
   (:require [reitit.frontend :as rtf]
             [reitit.frontend.easy :as rtfe]
             [reitit.coercion.schema :as rtcs]
+            [assembly-explainer.state :refer [app-state] :as s]
             [assembly-explainer.events :refer [dispatch]]))
 
-(defn chal-route [chal]
-  [chal {:name (keyword chal)
-         :controllers [{:start #(dispatch [:initialize-app-state])}]}])
+(defn program-route [name]
+  [name {:name (keyword name)
+         :controllers [{:start #(dispatch [:initialize-app-state name])}]}])
+
+#_(def routes
+    (into []
+          (concat ["/"
+                   ["" {:name :home}]]
+                  (map program-route s/program-names))))
 
 (def routes
   ["/"
-   ["" {:name :home}]])
+   ["" :home]
+   [":program" :program]])
 
 (def router
   (rtf/router
@@ -20,5 +28,7 @@
 (defn init-routes! []
   (rtfe/start!
    router
-   #(dispatch [:navigated %])
+   #(let [name (->> % :path-params :program)]
+      (swap! app-state assoc :route name)
+      (dispatch [:initialize-app-state name]))
    {:use-fragment true}))

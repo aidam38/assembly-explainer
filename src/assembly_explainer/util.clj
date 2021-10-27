@@ -2,11 +2,14 @@
 
 
 ;; macros
+
+
 (defmacro expand-programs [names]
-  (mapv #(let [path (str "resources/asm/" % ".asm")]
-           {:name %
-            :path path
-            :code (slurp path)}) names))
+  (into {}
+        (mapv #(let [path (str "resources/asm/" % ".asm")]
+                 [% {:name %
+                     :path path
+                     :code (slurp path)}]) names)))
 
 (defmacro cond+
   "Version of cond that allows assignments in the middle of it:

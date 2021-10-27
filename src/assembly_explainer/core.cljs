@@ -9,7 +9,7 @@
             [goog.dom :as gdom]))
 
 (defn mount-root []
-  (rdom/render [main @ctx] (.getElementById js/document "app")))
+  (rdom/render [main ctx] (.getElementById js/document "app")))
 
 (defn ^:dev/after-load clear-cache-and-render!
   []
@@ -20,7 +20,7 @@
 
 (defn ^:export init []
   #_(initialize-keyboard)
-  (dispatch [:initialize-app-state 0])
+  (dispatch [:initialize-app-state "test1"])
   (routes/init-routes!)
   (dev-init))
 

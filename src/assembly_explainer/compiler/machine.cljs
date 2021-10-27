@@ -121,13 +121,13 @@
 
 ;; initializing the program state
 ;; Starting register is a byte object with 8 bytes of zeros
-(def starting-register (bobj/move-into bobj/empty-object [:literal 0] 0 8))
+(def starting-register (bobj/move-into bobj/empty-object [nil 0] 0 8))
 
 (def starting-registers (assoc (->> c/registers-raw
                                     (map (fn [r] [(keyword r) starting-register]))
                                     (into {}))
-                               :rip (bobj/move-into (bobj/empty-object) [:literal 0] 0 8)
-                               :rsp (bobj/move-into (bobj/empty-object) [:literal 0] 0 8)))
+                               :rip (bobj/move-into bobj/empty-object [:literal 0] 0 8)
+                               :rsp (bobj/move-into bobj/empty-object [:literal 0] 0 8)))
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers

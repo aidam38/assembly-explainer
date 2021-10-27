@@ -73,8 +73,8 @@
 (defn registers-comp [{:keys [app-state]}]
   (r/with-let [registers (r/cursor (:program-state @app-state) [:registers])]
     [:div.bg-gray-900.p-2.h-32.rounded
-     (for [[name val :as reg] @registers
-           :when val]
+     (for [{:keys [meta] :as reg} @registers
+           :when (:type meta)]
        ^{:key name} [reg-comp reg])]))
 
 (defn header [{:keys [app-state]}]
@@ -106,7 +106,7 @@
     [:div.pt-10
      [header ctx]
      [dashboard ctx]]
-    (when false
+    (when true
       [:div.text-gray-100
        [:pre.pt-24 (with-out-str (cljs.pprint/pprint @(:app-state ctx)))]
        [:pre.pt-10 (with-out-str (cljs.pprint/pprint @(:program-state @(:app-state ctx))))]])]])

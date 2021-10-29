@@ -10,11 +10,15 @@
 
 ;; Get the value of the register with the given name
 
-(defn get-register-value [state name]
-  (bobj/get-value-at-index (get-in state [:registers (keyword name)]) 0 8))
+(defn get-register-value [state descriptor]
+  (let [{:keys [reg size]} (get c/descriptors (name descriptor))]
+   (bobj/get-value-at-index (get-in state [:registers reg]) 0 size)))
 
-(defn set-register-value [state name value size]
-  (update-in state [:registers (keyword name)] bobj/move-into value 0 size))
+(defn set-register-value [state descriptor value]
+  (let [{:keys [reg size]} (get c/descriptors (name descriptor))]
+   (update-in state [:registers reg] bobj/move-into value 0 size)))
+
+(defn get-register-size [register] (:size (get c/descriptors (name register))))
 
 ;; Compute the location an expression like '0x5(%rsp)' points to.
 (defn get-indirection-location [state [_ & location]]
@@ -36,7 +40,7 @@
   (update-in state (complete-state-path state path) f))
 
 (defn add-register [state register n]
-  (set-register-value state register (u/add-to-last (get-register-value state register) n) 8))
+  (set-register-value state register (u/add-to-last (get-register-value state register) n)))
 (def inc-register #(add-register %1 %2 1))
 (def dec-register #(add-register %1 %2 -1))
 
@@ -55,12 +59,17 @@
                        offset (+ v (nth rest 0 0))]
                    (bobj/get-value-at-index (get state :stack) offset size))))
 
-;; src here can only be :register, :literal, :indirection
-;; it can't be :stack or :instruction
+;; When operating with registers, the size is always inferred from the register descriptor.
+;; GNU assembler infers only when the instruction does not specify a size.
+;; GNU assembler fails to infer when the sizes of the operands are different.
+;; In this interepreter, movs will either truncate or extend to meet the size of the dest.
+;; This behavior matches x64 for all movs except for from 16 bit spaces to 32 bit ones.
+;; This should be fine as long as we only use programs which were written / compiled for 64 bit machines
+;;  since it doesn't seem like this behavior will matter on those systems...
 (defn mov [size [state [_ src dest]]]
   (let [src-val (resolve state src size)]
     (case (first dest)
-      :register (set-register-value state (second dest) src-val size)
+      :register (set-register-value state (second dest) src-val)
       :indirection (let [index (+ (second (get-register-value state :rsp)) (nth dest 2 0))]
                      (update state :stack bobj/move-into src-val index size)))))
 
@@ -86,36 +95,25 @@
 (defn pop [size [state [_ dest]]]
   (-> state
       (add-register :rsp (* size 1))
-      (#(set-register-value % (second dest) (resolve % [:indirection :rsp] size) size))))
+      (#(set-register-value % (second dest) (resolve % [:indirection :rsp] size)))))
 
 (defmethod process-instruction :pop [& args] (pop 8 args))
 (defmethod process-instruction :popq [& args] (pop 8 args))
 (defmethod process-instruction :popl [& args] (pop 4 args))
 (defmethod process-instruction :popw [& args] (pop 2 args))
 
-(defmethod process-instruction :add [state [src dest]] (let [dest-path (complete-state-path state dest)
-                                                             src-path  (complete-state-path state src)]
-                                                         (update-in state dest-path + (get-in state src-path))))
+(defn binary-op [op size [state [_ src dest]]] (do
+                                              (assert (= (first dest) :register))
+                                              (let [[_ src-val] (resolve state src size)
+                                                    [dest-type dest-val] (resolve state dest size)
+                                                    result [dest-type (op dest-val src-val)]]
+                                                (set-register-value state (second dest) result))))
 
-(defn sub [state [src dest]] (let [dest-path (complete-state-path state dest)
-                                   src-path  (complete-state-path state src)]
-                               (update-in state dest-path - (get-in state src-path))))
+(defn mul [])
 
-(defmethod process-instruction :sub [state [label]] ())
-
-(defn mul [state [src dest]] (let [dest-path (complete-state-path state dest)
-                                   src-path  (complete-state-path state src)]
-                               (update-in state dest-path * (get-in state src-path))))
-
-(defmethod process-instruction :mul [state [label]] ())
-
-(defn div [state [src]] (let [dest-path (complete-state-path state [:register :rax])
-                              src-path  (complete-state-path state src)]
-                          (update-in state dest-path / (get-in state src-path))))
-
-(defmethod process-instruction :div [state [label]] ())
-
-(defmethod process-instruction :jmp [state [label]] ())
+(defmethod process-instruction :add [& args] (binary-op + 8 args))
+(defmethod process-instruction :sub [& args] (binary-op - 8 args))
+(defmethod process-instruction :mul [& args] (binary-op * 8 args))
 
 ;; main stepping function
 (defn step [state] (let [[_ ripval] (get-register-value state :rip)
@@ -128,11 +126,11 @@
 ;; Starting register is a byte object with 8 bytes of zeros
 (def starting-register (bobj/move-into bobj/empty-object [nil 0] 0 8))
 
-(def starting-registers (assoc (->> c/registers-raw
-                                    (map (fn [r] [(keyword r) starting-register]))
-                                    (into {}))
-                               :rip (bobj/move-into bobj/empty-object [:ins 0] 0 8)
-                               :rsp (bobj/move-into bobj/empty-object [:literal 0] 0 8)))
+(def starting-registers (-> (->> c/registers
+                                 (map (fn [r] [r starting-register]))
+                                 (into {}))
+                            (update :ip bobj/move-into [:instruction 0] 0 8)
+                            (update :sp bobj/move-into [:stack 0] 0 8)))
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers
@@ -143,14 +141,26 @@
 ;; REPL
 (comment
   ;; stub!
-  (def state (init-program-state (nth assembly-explainer.state/programs 1)))
+  (def state (init-program-state (get assembly-explainer.state/programs "test3")))
   @state
+
+  (get c/descriptors (name :rip))
+  
+  (-> @state
+      (add-register :rip 2)
+      (get-register-value :rax))
+  
+  (-> @state
+      (process-instruction ["mov" [:register :rsp] [:register :ax]])
+      (process-instruction ["add" [:literal 10] [:register :ax]])
+      :registers
+      :ax)
 
   (swap! state step)
   (process-instruction @state ["push" [:literal 1]])
   (process-instruction @state ["popl" [:register :rax]])
-  (process-instruction @state ["mov" [:literal 1] [:indirection :rsp]])
-
+  (process-instruction @state ["mov" [:literal 1] [:indirection :rsp]])  
+  
   (-> @state
       (process-instruction ["mov" [:literal 1] [:indirection :rsp 8]])
       (process-instruction ["mov" [:literal 2] [:indirection :rsp 0]])

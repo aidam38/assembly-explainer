@@ -14,9 +14,10 @@
     ins = ws opcode ws args nl
     args = (arg comma)+
     arg = register | indirection | literal
-    indirection = literal <'('> register <')'>
+    indirection = offset? <'('> register <')'>
+    offset = #'-?\\d+'
     literal = <'$'> #'-?\\d+'
-    register = <'%'> (" (make-or-str c/registers-all) ")
+    register = <'%'> (" (make-or-str (keys c/descriptors)) ")
     opcode = " (make-or-str c/instructions) "
     <comma> = <#'\\s*,?\\s*'>
     <ws> = <#'\\s*'>
@@ -28,7 +29,9 @@
   (i/transform
    {:ins (fn [[_ opcode] [_ & args]] (concat [opcode] args))
     :arg (fn [type] type)
-    :indirection (fn [[_ offset] [_ register]] [:indirection (keyword register) (js/parseInt offset)])}
+    :indirection (fn
+                   ([[_ register]] [:indirection (keyword register)])
+                   ([[_ offset] [_ register]] [:indirection (keyword register) (js/parseInt offset)]))}
    (vec (rest code-struct))))
 
 (defn parse [{:keys [code]}]
@@ -43,9 +46,9 @@
   (def test-program {:code 
                      
 "mov $42, %rbx
-mov %rbx,$0(%rsp)
+mov %rbx,(%rsp)
 push %rbx
-pop %rax"     
+pop %rax"
                      
 })
   (assembly-parser (:code test-program))

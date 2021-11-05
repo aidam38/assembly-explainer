@@ -2,8 +2,7 @@
   (:require [reitit.frontend :as rtf]
             [reitit.frontend.easy :as rtfe]
             [reitit.coercion.schema :as rtcs]
-            [assembly-explainer.state :refer [app-state] :as s]
-            [assembly-explainer.events :refer [dispatch]]))
+            [framework.core :refer [dispatch]]))
 
 (defn program-route [name]
   [name {:name (keyword name)
@@ -29,6 +28,5 @@
   (rtfe/start!
    router
    #(let [name (->> % :path-params :program)]
-      (swap! app-state assoc :route name)
-      (dispatch [:initialize-app-state name]))
+      (dispatch [:init-app-state (or name "test1")]))
    {:use-fragment true}))

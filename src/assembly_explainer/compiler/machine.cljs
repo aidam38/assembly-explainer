@@ -8,15 +8,21 @@
    [goog.string :as gstr]
    [goog.string.format]])
 
-;; Get the value of the register with the given name
+;; Get the value of the register with the given name and size like :a 8
+(defn get-register-value-sized [state reg size]
+  (bobj/get-value-at-index (get-in state [:registers reg]) 0 size))
 
+(defn set-register-value-sized [state reg size value]
+   (update-in state [:registers reg] bobj/move-into value 0 size))
+
+;; Get the value of the register with the given descriptor like :rax
 (defn get-register-value [state descriptor]
   (let [{:keys [reg size]} (get c/descriptors (name descriptor))]
-   (bobj/get-value-at-index (get-in state [:registers reg]) 0 size)))
+    (get-register-value-sized state reg size)))
 
 (defn set-register-value [state descriptor value]
   (let [{:keys [reg size]} (get c/descriptors (name descriptor))]
-   (update-in state [:registers reg] bobj/move-into value 0 size)))
+    (set-register-value-sized state reg size value)))
 
 (defn get-register-size [register] (:size (get c/descriptors (name register))))
 
@@ -73,12 +79,11 @@
       :indirection (let [index (+ (second (get-register-value state :rsp)) (nth dest 2 0))]
                      (update state :stack bobj/move-into src-val index size)))))
 
-;; If the src is an indirection, need to process it down to a value
-;; If the dest is an indirection, need to make it into bytes and push them
-;;  and then update the indices
-
 (defmethod process-instruction :mov [& args] (mov 8 args))
-  ;;  (assoc-in state (complete-state-path state dest) (resolve-src state src)))
+(defmethod process-instruction :movq [& args] (mov 8 args))
+(defmethod process-instruction :movl [& args] (mov 4 args))
+(defmethod process-instruction :movd [& args] (mov 4 args))
+(defmethod process-instruction :movw [& args] (mov 2 args))
 
 (defn push [size [state [_ src]]]
   (let [src-val (resolve state src size)
@@ -102,18 +107,48 @@
 (defmethod process-instruction :popl [& args] (pop 4 args))
 (defmethod process-instruction :popw [& args] (pop 2 args))
 
-(defn binary-op [op size [state [_ src dest]]] (do
-                                              (assert (= (first dest) :register))
-                                              (let [[_ src-val] (resolve state src size)
-                                                    [dest-type dest-val] (resolve state dest size)
-                                                    result [dest-type (op dest-val src-val)]]
-                                                (set-register-value state (second dest) result))))
+(defmethod process-instruction :jmp [state [_ rel]]
+  (do
+    (js/console.log (str rel))
+    (assert (= (first rel) :literal))
+    (add-register state :rip (second rel))))
 
-(defn mul [])
+(defn binary-op [op size [state [_ src dest]]] (do
+                                                 (assert (= (first dest) :register))
+                                                 (let [[_ src-val] (resolve state src size)
+                                                       [dest-type dest-val] (resolve state dest size)
+                                                       result [dest-type (op dest-val src-val)]]
+                                                   (set-register-value state (second dest) result))))
+
+(defn max-register-value [size] (Math/pow 2 (* size 8)))
+(defn mul [size [state [_ coeff]]] (let [[_ c] (resolve state coeff size)
+                                         [a-type a-val] (get-register-value-sized state :a size)
+                                         product (* a-val c)
+                                         result-high [a-type (int (/ product (max-register-value size)))]
+                                         result-low [a-type (int (rem product (max-register-value size)))]]
+                                     (set-register-value-sized state :d size result-high)
+                                     (set-register-value-sized state :a size result-low)))
+
+;; Multiplies the value in al by the given 8 bit value and stores the result in ax
+(defn mulb [[state [_ coeff]]] (let [[_ c] (resolve state coeff 1)
+                                     [a-type a-val] (get-register-value state :al)
+                                     result [a-type (* a-val c)]]
+                                 (set-register-value state :ax result)))
 
 (defmethod process-instruction :add [& args] (binary-op + 8 args))
 (defmethod process-instruction :sub [& args] (binary-op - 8 args))
-(defmethod process-instruction :mul [& args] (binary-op * 8 args))
+
+(defmethod process-instruction :mulq [& args] (mul 8 args))
+(defmethod process-instruction :muld [& args] (mul 4 args))
+(defmethod process-instruction :mull [& args] (mul 4 args))
+(defmethod process-instruction :mulw [& args] (mul 2 args))
+(defmethod process-instruction :mulb [& args] (mulb args))
+
+(defmethod process-instruction :imulq [& args] (binary-op * 8 args))
+(defmethod process-instruction :imuld [& args] (binary-op * 4 args))
+(defmethod process-instruction :imull [& args] (binary-op * 4 args))
+(defmethod process-instruction :imulw [& args] (binary-op * 2 args))
+(defmethod process-instruction :imulb [& args] (binary-op * 1 args))
 
 ;; main stepping function
 (defn step [state] (let [[_ ripval] (get-register-value state :rip)
@@ -145,11 +180,11 @@
   @state
 
   (get c/descriptors (name :rip))
-  
+
   (-> @state
       (add-register :rip 2)
       (get-register-value :rax))
-  
+
   (-> @state
       (process-instruction ["mov" [:register :rsp] [:register :ax]])
       (process-instruction ["add" [:literal 10] [:register :ax]])
@@ -159,8 +194,8 @@
   (swap! state step)
   (process-instruction @state ["push" [:literal 1]])
   (process-instruction @state ["popl" [:register :rax]])
-  (process-instruction @state ["mov" [:literal 1] [:indirection :rsp]])  
-  
+  (process-instruction @state ["mov" [:literal 1] [:indirection :rsp]])
+
   (-> @state
       (process-instruction ["mov" [:literal 1] [:indirection :rsp 8]])
       (process-instruction ["mov" [:literal 2] [:indirection :rsp 0]])

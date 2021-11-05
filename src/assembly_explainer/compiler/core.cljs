@@ -1,6 +1,12 @@
 (ns assembly-explainer.compiler.core)
 
-(def instructions ["mov" "push" "pushq" "pushl" "pushw" "pop" "add" "sub"])
+(def instructions ["mov" "movq" "movl" "movdd" "movw"
+                   "push" "pushq" "pushl" "pushw"
+                   "pop" "popq" "popl" "popd" "popw"
+                   "mul" "mulq" "mull" "muld" "mulw"
+                   "imul" "imulq" "imull" "imuld" "imulw"
+                   "add" "sub"
+                   "jmp"])
 
 (def registers-raw ["ax" "bx" "cx" "dx" "si" "di" "sp" "bp" "ip"])
 

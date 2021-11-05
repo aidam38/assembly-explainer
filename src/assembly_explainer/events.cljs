@@ -1,32 +1,40 @@
 (ns assembly-explainer.events
   (:require
-   [assembly-explainer.state :refer [ctx] :as s]
+   [framework.core :refer [reg-event dispatch]]
+   [assembly-explainer.state :as s]
    [assembly-explainer.compiler.machine :as compiler]))
 
-(defmulti handle-event (fn [_ [ev-type]] ev-type))
+(reg-event
+ :init-app-state
+ (fn [app-state [_ name]]
+   (reset! app-state (s/starting-app-state name))
+   (dispatch [:init-program-state])))
 
-(defn dispatch [event]
-  (handle-event ctx event))
+(reg-event
+ :init-program-state
+ (fn [app-state _]
+   (swap! app-state assoc :program-state (compiler/init-program-state (:program-input @app-state)))))
 
-(defmethod handle-event :reset-program-state-history [{:keys [app-state]}]
-  (swap! app-state assoc :program-state-history [])
-  (dispatch [:store-program-state-history]))
+(reg-event
+ :step-program-state
+ (fn [app-state _]
+   (dispatch [:store-program-state-history])
+   (swap! (:program-state @app-state) compiler/step)))
 
-(defmethod handle-event :store-program-state-history [{:keys [app-state]}]
-  (swap! app-state update :program-state-history #(conj % @(:program-state @app-state))))
+(reg-event
+ :reset-program-state-history
+ (fn [app-state _]
+   (swap! app-state assoc :program-state-history [])
+   (dispatch [:store-program-state-history])))
 
-(defmethod handle-event :undo-program-state [{:keys [app-state]}]
-  (let [last-program-state (last (:program-state-history @app-state))]
-    (swap! app-state update :program-state-history (comp vec butlast))
-    (reset! (:program-state @app-state) last-program-state)))
+(reg-event
+ :store-program-state-history
+ (fn [app-state _]
+   (swap! app-state update :program-state-history #(conj % @(:program-state @app-state)))))
 
-(defmethod handle-event :initialize-program-state [{:keys [app-state]}]
-  (swap! app-state assoc :program-state (compiler/init-program-state (:program-input @app-state))))
-
-(defmethod handle-event :step-program-state [{:keys [app-state]}]
-  (dispatch [:store-program-state-history])
-  (swap! (:program-state @app-state) compiler/step))
-
-(defmethod handle-event :initialize-app-state [{:keys [app-state]} [_ name]]
-  (reset! app-state (s/starting-app-state name))
-  (dispatch [:initialize-program-state]))
+(reg-event
+ :undo-program-state
+ (fn [app-state _]
+   (let [last-program-state (last (:program-state-history @app-state))]
+     (swap! app-state update :program-state-history (comp vec butlast))
+     (reset! (:program-state @app-state) last-program-state))))

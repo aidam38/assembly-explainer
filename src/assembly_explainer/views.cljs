@@ -84,7 +84,7 @@
                                        (= reg name))
                               desc)) c/descriptors)]
     [:div.flex
-     [:div.mr-2 "%" actual-name]
+     [:div.w-10.mr-4 "%" actual-name]
      [val-comp [type (u/bytes-to-num bytes)]]]))
 
 (defn registers-comp []

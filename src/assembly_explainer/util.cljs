@@ -1,5 +1,10 @@
 (ns assembly-explainer.util)
 
+;; print and return
+(defn prr [x]
+  (js/console.log (clj->js x))
+  x)
+
 ;; Applies f to i if p(i) is true
 (defn update-if [i p f] (if (p i) (f i) (i)))
 

@@ -14,5 +14,6 @@
            reagent/reagent           {:mvn/version "1.1.0"}
            metosin/reitit            {:mvn/version "0.5.15"}
            instaparse/instaparse     {:mvn/version "1.4.10"}
+           applied-science/js-interop {:mvn/version "0.3.1"}
            to.fluent/heroicons-clojure {:mvn/version "1.0.4"}}
  :paths   ["src" "resources"  "test/cljs"]}

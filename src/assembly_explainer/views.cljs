@@ -2,11 +2,13 @@
   (:require
    [reagent.core :as r]
    [framework.core :refer [subscribe dispatch]]
+   [codemirror.editor :as cm]
    [assembly-explainer.compiler.machine :as m]
    [assembly-explainer.compiler.core :as c]
    [assembly-explainer.compiler.byte-object :as bobj]
    [assembly-explainer.util :as u]
    [assembly-explainer.state :as s]
+   [assembly-explainer.compiler.parser :as p]
    [reitit.frontend.easy :as rfe]
    [cljs.pprint]
    [to.fluent.heroicons-clojure.reagent.outline.chevron-right :refer [chevron-right]]
@@ -14,11 +16,11 @@
 
 ;; reusable components
 
-(defn panel [name & children]
+(defn panel [name child]
   [:div
    [:span.text-sm.text-gray-400 name]
    [:div.bg-gray-900.mb-2.rounded
-    children]])
+    child]])
 
 (defn step-forward-button []
   [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none.select-none
@@ -51,10 +53,10 @@
    (for [bl @(subscribe [:get-backlinks-of val])]
      ^{:key bl} [val-comp bl])])
 
-(defn ins-comp [[opcode & args] i]
+(defn ins-comp [[opcode & args] i backlinks?]
   [:div.relative
    [:div.absolute.text-yellow-500.text-xs i]
-   [backlinks-comp [:ins i]]
+   (when backlinks? [backlinks-comp [:ins i]])
    [:div.flex.p-2.ml-4
     [:div.w-10.mr-6.text-gray-400
      opcode]
@@ -63,12 +65,15 @@
                 (for [arg args]
                   ^{:key arg} [val-comp arg]))]]])
 
+(defn instructions-comp [instructions backlinks?]
+  [panel "instructions"
+   [:div.divide-y-2.divide-gray-500
+    (for [[i ins] (map-indexed vector instructions)]
+      ^{:key (hash ins)} [ins-comp ins i backlinks?])]])
+
 (defn program-comp []
   (let [instructions @(subscribe [:instructions])]
-    [panel "instructions"
-     [:div.divide-y-2.divide-gray-500
-      (for [[i ins] (map-indexed vector instructions)]
-        ^{:key (hash ins)} [ins-comp ins i])]]))
+    [instructions-comp instructions true]))
 
 (defn stack-item-comp [val {:keys [range]}]
   [:div.relative
@@ -127,16 +132,49 @@
      [:div
       [chevron-button chevron-right #()]]]))
 
-(defn dashboard []
+(defn dashboard-comp [child]
   [:div.bg-gray-700.rounded-lg.p-4.text-gray-50.shadow-xl
-   [:div.flex.py-4
-    [:div.p-2 {:class "w-1/2"}
-     [program-comp]]
-    [:div.p-2 {:class "w-1/2"}
-     [stack-comp]
-     [registers-comp]
-     [flags-comp]]]
-   [buttons]])
+   child])
+
+(defn program-dashboard []
+  [dashboard-comp
+   [:<>
+    [:div.flex.py-4
+     [:div.p-2 {:class "w-1/2"}
+      [program-comp]]
+     [:div.p-2 {:class "w-1/2"}
+      [stack-comp]
+      [registers-comp]
+      [flags-comp]]]
+    [buttons]]])
+
+(defn code-editor []
+  [:div.bg-gray-100.rounded.shadow.border.text-gray-900.h-32
+   [cm/main
+    {:on-change #(dispatch [:update-editor-content %])}]])
+
+(defn instructions-preview []
+  (let [editor-content @(subscribe [:editor-content])
+        parse-result (p/assembly-parser  editor-content)]
+    (u/prr parse-result)
+    (if (vector? parse-result)
+      [instructions-comp (p/get-ast parse-result) false]
+      [:pre (pr-str parse-result)])))
+
+(defn playground []
+  (let [editing? @(subscribe [:editing?])]
+    (if editing?
+      [dashboard-comp
+       [:<>
+        [:div.flex.py-4
+         [:div.p-4 {:class "w-1/2"}
+          [code-editor]]
+         [:div.p-2 {:class "w-1/2"}
+          [instructions-preview]]]
+        [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none.select-none
+         {:on-click #(dispatch [:run])}
+         "Run!"]]]
+      [program-dashboard])))
 
 (defn link-comp [link label]
   [:a.h-8.p-2.rounded.flex.items-center.hover:text-gray-300.hover:bg-gray-700 {:href link} label])
@@ -161,8 +199,10 @@
          :home [:div "hello worlds"]
          :example [:div.pt-10
                    [header]
-                   [dashboard]]
-         :playground [:div "playground"])]
+                   [program-dashboard]]
+         :playground [:div.pt-10
+                      [:h1.text-xl.text-white "Playground"]
+                      [playground]])]
       [:div.w-56]
       #_(when true
           [:div.text-gray-100

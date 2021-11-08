@@ -14,3 +14,7 @@
     {:program-input program-input
      :program-state (machine/init-program-state program-input)
      :program-state-history []}))
+
+(def starting-playground-state
+  {:editor-content ""
+   :editing? true})

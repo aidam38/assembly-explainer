@@ -52,7 +52,6 @@
 (reg-sub
  :at-end-of-program?
  (fn [_ _]
-   (u/prr  @(subscribe [:current-instruction]))
    (= @(subscribe [:current-instruction])
       @(subscribe [:number-of-instructions]))))
 
@@ -70,3 +69,14 @@
                 val (bobj/get-value-at-index reg 0 8)]
             (= value val)))
         (map (fn [[n _]] [:register n])))))
+
+;; playground
+(reg-sub
+ :editor-content
+ (fn [app-state _]
+   (get-in @app-state [:editor-content])))
+
+(reg-sub
+ :editing?
+ (fn [app-state _]
+   (get-in @app-state [:editing?])))

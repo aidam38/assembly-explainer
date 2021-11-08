@@ -11,7 +11,9 @@
                         :on-enter (fn [{:keys [example]}]
                                     (dispatch [:init-example-state example]))
                         :on-leave #(dispatch [:destroy-example-state])}]
-   ["playground" {:name :playground}]])
+   ["playground" {:name :playground
+                  :on-enter #(dispatch [:init-playground-state])
+                  :on-leave #(dispatch [:destroy-playground-state])}]])
 
 (def router
   (rtf/router

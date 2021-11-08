@@ -5,7 +5,7 @@
 (def default-app-state
   {:current-route {:name :home}})
 
-(def programs (expand-programs ["test1" "test2" "test3" "test4" "test5"]))
+(def programs (expand-programs ["test1" "test2" "test3" "test4" "test5" "test6"]))
 
 (def program-names (keys programs))
 

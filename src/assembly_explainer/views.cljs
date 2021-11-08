@@ -46,12 +46,15 @@
     :stack [:div.text-pink-500 value]
     [:div (pr-str value)]))
 
+(defn backlinks-comp [val]
+  [:div.absolute.right-0.text-gray-400.text-xs
+   (for [bl @(subscribe [:get-backlinks-of val])]
+     ^{:key bl} [val-comp bl])])
+
 (defn ins-comp [[opcode & args] i]
   [:div.relative
    [:div.absolute.text-yellow-500.text-xs i]
-   [:div.absolute.right-0.text-gray-400.text-xs
-    (for [bl @(subscribe [:get-backlinks-of [:ins i]])]
-      ^{:key bl} [val-comp bl])]
+   [backlinks-comp [:ins i]]
    [:div.flex.p-2.ml-4
     [:div.w-10.mr-6.text-gray-400
      opcode]
@@ -70,9 +73,7 @@
 (defn stack-item-comp [val {:keys [range]}]
   [:div.relative
    [:div.absolute.text-xs.text-pink-500 (first range)]
-   [:div.absolute.right-0.text-gray-400.text-xs
-    (for [bl @(subscribe [:get-backlinks-of [:stack (first range)]])]
-      ^{:key bl} [val-comp bl])]
+   [backlinks-comp [:stack (first range)]]
    [:div.flex.p-2.ml-6
     [:div.mr-8
      [val-comp val]]]])
@@ -85,23 +86,24 @@
             :let [value (bobj/get-value-from-meta stack m)]]
         ^{:key (hash bytes)} [stack-item-comp value m])]]))
 
-(defn reg-comp [name {:keys [bytes meta]}]
+(defn reg-comp [[name {:keys [bytes meta]}]]
   (let [{:keys [type range]} (first meta)
         actual-name (some (fn [[desc {:keys [size reg]}]]
                             (when (and (= size (apply - (reverse range)))
                                        (= reg name))
                               desc)) c/descriptors)]
     [:div.flex
-     [:div.w-10.mr-4.text-green-500 "%" actual-name]
+     [:div.w-10.mr-4
+      [val-comp [:register actual-name]]]
      [val-comp [type (u/bytes-to-num bytes)]]]))
 
 (defn registers-comp []
   (let [registers @(subscribe [:registers])]
     [panel "registers"
      [:div.h-32
-      (for [[name {:keys [meta] :as reg}] registers
+      (for [[name {:keys [meta]} :as reg] registers
             :when (some :type meta)]
-        ^{:key name} [reg-comp name reg])]]))
+        ^{:key name} [reg-comp reg])]]))
 
 #_(defn filter-comp [name val]
     [:div name " " val])

@@ -4,7 +4,7 @@
             [assembly-explainer.events]
             [assembly-explainer.subs]
             [assembly-explainer.views :refer [main]]
-            [assembly-explainer.routes :as routes]
+            [assembly-explainer.router :as router]
             [assembly-explainer.state]
             [assembly-explainer.keyboard]
             [goog.dom :as gdom]))
@@ -21,5 +21,6 @@
 
 (defn ^:export init []
   #_(initialize-keyboard)
-  (routes/init-routes!)
+  (router/init-routes!)
+  (dispatch [:init-app-state])
   (dev-init))

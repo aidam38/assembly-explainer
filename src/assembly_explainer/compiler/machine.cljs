@@ -4,7 +4,6 @@
    [assembly-explainer.compiler.core :as c]
    [assembly-explainer.compiler.byte-object :as bobj]
    [assembly-explainer.util :as u]
-   [assembly-explainer.state]
    [goog.string :as gstr]
    [goog.string.format]])
 

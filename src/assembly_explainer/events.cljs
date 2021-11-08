@@ -2,18 +2,35 @@
   (:require
    [framework.core :refer [reg-event dispatch]]
    [assembly-explainer.state :as s]
+   [assembly-explainer.util :as u]
+   [assembly-explainer.router :as router]
    [assembly-explainer.compiler.machine :as compiler]))
 
 (reg-event
  :init-app-state
- (fn [app-state [_ name]]
-   (reset! app-state (s/starting-app-state name))
-   (dispatch [:init-program-state])))
+ (fn [app-state _]
+   (reset! app-state s/default-app-state)))
 
 (reg-event
- :init-program-state
+ :navigated
+ (fn [app-state [_ {{:keys [name on-leave on-enter]} :data
+                    {:keys [path]}                   :parameters}]]
+   (when-let [old-leave-fn (get-in @app-state [:current-route :leave-fn])]
+     (old-leave-fn))
+   (swap! app-state assoc :current-route {:name     name
+                                          :leave-fn (when on-leave #(on-leave path))})
+   (when on-enter (on-enter path))))
+
+
+(reg-event
+ :init-example-state
+ (fn [app-state [_ name]]
+   (swap! app-state merge (s/starting-example-state name))))
+
+(reg-event
+ :destroy-example-state
  (fn [app-state _]
-   (swap! app-state assoc :program-state (compiler/init-program-state (:program-input @app-state)))))
+   (swap! app-state dissoc :program-input :program-state :program-state-history)))
 
 (reg-event
  :step-program-state

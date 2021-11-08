@@ -21,13 +21,13 @@
     children]])
 
 (defn step-forward-button []
-  [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none
+  [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none.select-none
    {:on-click #(dispatch [:step-program-state])
     :disabled @(subscribe [:at-end-of-program?])}
    "Step!"])
 
 (defn step-back-button []
-  [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none
+  [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none.select-none
    {:on-click #(dispatch [:undo-program-state])
     :disabled @(subscribe [:at-start-of-program?])}
    "Step back!"])
@@ -39,22 +39,23 @@
 
 (defn val-comp [[type value & [offset]]]
   (case type
-    :literal [:div "$" value]
+    :literal [:div.text-blue-500 "$" value]
     :register [:div.text-green-500 "%" value]
-    :indirection [:div "$" offset "(%" value ")"]
-    :ins [:div value]
+    :indirection [:div.text-purple-500 "$" offset "(%" value ")"]
+    :ins [:div.text-yellow-500 value]
+    :stack [:div.text-pink-500 value]
     [:div (pr-str value)]))
 
 (defn ins-comp [[opcode & args] i]
   [:div.relative
-   [:div.absolute.text-gray-400.text-xs i]
+   [:div.absolute.text-yellow-500.text-xs i]
    [:div.absolute.right-0.text-gray-400.text-xs
     (for [bl @(subscribe [:get-backlinks-of [:ins i]])]
       ^{:key bl} [val-comp bl])]
-   [:div.flex.p-2.ml-3
-    [:div.w-10.mr-4
+   [:div.flex.p-2.ml-4
+    [:div.w-10.mr-6.text-gray-400
      opcode]
-    [:div.flex.space-x-2
+    [:div.flex.space-x-2.text-gray-400
      (interpose ", "
                 (for [arg args]
                   ^{:key arg} [val-comp arg]))]]])
@@ -68,7 +69,7 @@
 
 (defn stack-item-comp [val {:keys [range]}]
   [:div.relative
-   [:div.absolute.text-gray-400.text-xs  (first range)]
+   [:div.absolute.text-xs.text-pink-500 (first range)]
    [:div.absolute.right-0.text-gray-400.text-xs
     (for [bl @(subscribe [:get-backlinks-of [:stack (first range)]])]
       ^{:key bl} [val-comp bl])]
@@ -91,7 +92,7 @@
                                        (= reg name))
                               desc)) c/descriptors)]
     [:div.flex
-     [:div.w-10.mr-4 "%" actual-name]
+     [:div.w-10.mr-4.text-green-500 "%" actual-name]
      [val-comp [type (u/bytes-to-num bytes)]]]))
 
 (defn registers-comp []

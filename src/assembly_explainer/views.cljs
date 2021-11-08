@@ -3,12 +3,20 @@
    [reagent.core :as r]
    [framework.core :refer [subscribe dispatch]]
    [assembly-explainer.compiler.machine :as m]
+   [assembly-explainer.compiler.core :as c]
    [assembly-explainer.compiler.byte-object :as bobj]
    [assembly-explainer.util :as u]
-   [assembly-explainer.subs :as s]
    [cljs.pprint]
    [to.fluent.heroicons-clojure.reagent.outline.chevron-right :refer [chevron-right]]
    [to.fluent.heroicons-clojure.reagent.outline.chevron-left :refer [chevron-left]]))
+
+;; reusable components
+
+(defn panel [name & children]
+  [:div
+   [:span.text-sm.text-gray-400 name]
+   [:div.bg-gray-900.mb-2.rounded
+    children]])
 
 (defn step-forward-button []
   [:button.rounded.bg-gray-400.text-gray-900.px-2.py-1.hover:bg-gray-200.disabled:opacity-20.disabled:bg-gray-400.disabled:pointer-events-none
@@ -51,9 +59,10 @@
 
 (defn program-comp []
   (let [instructions @(subscribe [:instructions])]
-    [:div.bg-gray-900.rounded.divide-y-2.divide-gray-500
-     (for [[i ins] (map-indexed vector instructions)]
-       ^{:key (hash ins)} [ins-comp ins i])]))
+    [panel "instructions"
+     [:div.divide-y-2.divide-gray-500
+      (for [[i ins] (map-indexed vector instructions)]
+        ^{:key (hash ins)} [ins-comp ins i])]]))
 
 (defn stack-item-comp [val meta]
   [:div.flex.p-2
@@ -62,23 +71,29 @@
 
 (defn stack-comp []
   (let [{:keys [bytes meta] :as stack} @(subscribe [:stack])]
-    [:div.bg-gray-900.mb-2.divide-y-2.divide-gray-50.h-64.rounded
-     (for [m meta
-           :let [value (bobj/get-value-from-meta stack m)]]
-       ^{:key (hash bytes)} [stack-item-comp value meta])]))
+    [panel "stack"
+     [:div.h-64.divide-y-2.divide-gray-500
+      (for [m meta
+            :let [value (bobj/get-value-from-meta stack m)]]
+        ^{:key (hash bytes)} [stack-item-comp value meta])]]))
 
 (defn reg-comp [name {:keys [bytes meta]}]
-  (let [m (first meta)]
+  (let [{:keys [type range]} (first meta)
+        actual-name (some (fn [[desc {:keys [size reg]}]]
+                            (when (and (= size (apply - (reverse range)))
+                                       (= reg name))
+                              desc)) c/descriptors)]
     [:div.flex
-     [:div.mr-2 "%" name]
-     [val-comp [(:type m) (u/bytes-to-num bytes)]]]))
+     [:div.w-10.mr-4 "%" actual-name]
+     [val-comp [type (u/bytes-to-num bytes)]]]))
 
 (defn registers-comp []
   (let [registers @(subscribe [:registers])]
-    [:div.bg-gray-900.p-2.h-32.rounded
-     (for [[name {:keys [meta] :as reg}] registers
-           :when (some :type meta)]
-       ^{:key name} [reg-comp name reg])]))
+    [panel "registers"
+     [:div
+      (for [[name {:keys [meta] :as reg}] registers
+            :when (some :type meta)]
+        ^{:key name} [reg-comp name reg])]]))
 
 (defn chevron-button [which on-click]
   [:button.p-1.mr-2.rounded-full.flex.justify-center.items-center.hover:bg-gray-600

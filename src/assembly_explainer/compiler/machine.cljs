@@ -13,7 +13,7 @@
   (bobj/get-value-at-index (get-in state [:registers reg]) 0 size))
 
 (defn set-register-value-sized [state reg size value]
-   (update-in state [:registers reg] bobj/move-into value 0 size))
+  (update-in state [:registers reg] bobj/move-into value 0 size))
 
 ;; Get the value of the register with the given descriptor like :rax
 (defn get-register-value [state descriptor]
@@ -189,7 +189,7 @@
 (def starting-registers (-> (->> c/registers
                                  (map (fn [r] [r starting-register]))
                                  (into {}))
-                            (update :ip bobj/move-into [:instruction 0] 0 8)
+                            (update :ip bobj/move-into [:ins 0] 0 8)
                             (update :sp bobj/move-into [:stack 0] 0 8)))
 
 (defn init-program-state [program-input]

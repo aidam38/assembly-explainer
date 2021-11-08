@@ -2,6 +2,7 @@
   (:require [reagent.dom :as rdom]
             [framework.core :refer [dispatch]]
             [assembly-explainer.events]
+            [assembly-explainer.subs]
             [assembly-explainer.views :refer [main]]
             [assembly-explainer.routes :as routes]
             [assembly-explainer.state]

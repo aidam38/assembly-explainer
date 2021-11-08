@@ -1,12 +1,13 @@
 (ns assembly-explainer.subs
   (:require [reagent.core :as r]
             [framework.core :refer [reg-sub subscribe]]
+            [assembly-explainer.util :as u]
             [assembly-explainer.compiler.byte-object :as bobj]))
 
 (reg-sub
  :program-name
  (fn [app-state _]
-   (get-in app-state [:program-input :name])))
+   (get-in @app-state [:program-input :name])))
 
 (reg-sub
  :program-state
@@ -51,9 +52,11 @@
 (reg-sub
  :get-backlinks-of
  (fn [_ [_ value]]
+   (js/console.log value)
    (->> @(subscribe [:registers])
+        (u/prr)
         (filter
-         #(let [[name reg] %
+         #(let [[_ reg] %
                 val (bobj/get-value-at-index reg 0 8)]
             (= value val)))
         (map (fn [[n _]] [:register n])))))

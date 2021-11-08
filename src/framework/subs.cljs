@@ -8,4 +8,5 @@
 
 (defn subscribe [sub-v]
   (let [handler-fn (reg/get-handler :sub (first sub-v))]
+    (assert handler-fn)
     (handler-fn app-state sub-v)))

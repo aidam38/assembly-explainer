@@ -6,6 +6,8 @@
    [assembly-explainer.compiler.core :as c]
    [assembly-explainer.compiler.byte-object :as bobj]
    [assembly-explainer.util :as u]
+   [assembly-explainer.state :as s]
+   [reitit.frontend.easy :as rfe]
    [cljs.pprint]
    [to.fluent.heroicons-clojure.reagent.outline.chevron-right :refer [chevron-right]]
    [to.fluent.heroicons-clojure.reagent.outline.chevron-left :refer [chevron-left]]))
@@ -119,13 +121,29 @@
      [registers-comp]]]
    [buttons]])
 
+(defn sidebar []
+  [:div.flex.flex-col.p-2.rounded.bg-gray-600.bg-opacity-50
+   [:a {:href (rfe/href :home)} "Home"]
+   [:div.mx-2.flex.flex-col
+    "Examples"
+    (for [n s/program-names]
+      ^{:key n} [:a {:href (rfe/href :example {:example n})} "— " n])]
+   [:a {:href (rfe/href :playground)} "Playground"]])
+
 (defn main []
-  [:div.h-screen.bg-gray-500.font-mono
-   [:div.container.max-w-screen-md.mx-auto
-    [:div.pt-10
-     [header]
-     [dashboard]]
-    #_(when true
-        [:div.text-gray-100
-         [:pre.pt-24 (with-out-str (cljs.pprint/pprint @(:app-state ctx)))]
-         [:pre.pt-10 (with-out-str (cljs.pprint/pprint @(:program-state @(:app-state ctx))))]])]])
+  (let [active-page @(subscribe [:active-page])]
+    [:div.h-screen.bg-gray-500.font-mono.relative
+     [:div.absolute.h-screen.flex
+      [:div.pt-32
+       [sidebar]]]
+     [:div.container.max-w-screen-md.mx-auto
+      (case active-page
+        :home [:div "hello worlds"]
+        :example [:div.pt-10
+                  [header]
+                  [dashboard]]
+        :playground [:div "playground"])
+      #_(when true
+          [:div.text-gray-100
+           [:pre.pt-24 (with-out-str (cljs.pprint/pprint @(:app-state ctx)))]
+           [:pre.pt-10 (with-out-str (cljs.pprint/pprint @(:program-state @(:app-state ctx))))]])]]))

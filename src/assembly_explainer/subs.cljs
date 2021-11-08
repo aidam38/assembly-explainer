@@ -5,6 +5,11 @@
             [assembly-explainer.compiler.byte-object :as bobj]))
 
 (reg-sub
+ :active-page
+ (fn [app-state _]
+   (get-in @app-state [:current-route :name])))
+
+(reg-sub
  :program-name
  (fn [app-state _]
    (get-in @app-state [:program-input :name])))
@@ -52,9 +57,7 @@
 (reg-sub
  :get-backlinks-of
  (fn [_ [_ value]]
-   (js/console.log value)
    (->> @(subscribe [:registers])
-        (u/prr)
         (filter
          #(let [[_ reg] %
                 val (bobj/get-value-at-index reg 0 8)]

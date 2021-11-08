@@ -14,6 +14,13 @@
 (defn set-register-value-sized [state reg size value]
   (update-in state [:registers reg] bobj/move-into value 0 size))
 
+(defn get-register-name [[name {:keys [meta]}]]
+  (let [{:keys [range]} (first meta)]
+    (some (fn [[desc {:keys [size reg]}]]
+            (when (and (= size (apply - (reverse range)))
+                       (= reg name))
+              desc)) c/descriptors)))
+
 ;; Get the value of the register with the given descriptor like :rax
 (defn get-register-value [state descriptor]
   (let [{:keys [reg size]} (get c/descriptors (name descriptor))]
@@ -126,9 +133,9 @@
 (defmethod process-instruction :popw [& args] (pop 2 args))
 
 (defn jumpif [condition [state [_ rel]]]
-  (if condition 
-      (add-register state :rip (second rel))
-      state))
+  (if condition
+    (add-register state :rip (second rel))
+    state))
 
 (defmethod process-instruction :jmp [& args] (jumpif true args))
 
@@ -183,30 +190,29 @@
       (set-sub-carry a b)
       (set-sub-zero a b)))
 
-(defn cmp [size [state [_ a b]]] 
-  (let [
-        [_ a-val] (resolve state a size)
+(defn cmp [size [state [_ a b]]]
+  (let [[_ a-val] (resolve state a size)
         [_ b-val] (resolve state b size)]
-   (set-sub-flags state b-val a-val)))
+    (set-sub-flags state b-val a-val)))
 
 (defn test [size [state [_ a b]]]
-    (let [[_ a-val] (resolve state a size)
-          [_ b-val] (resolve state b size)
-          result (bit-and a-val b-val)]
-      (-> state
-          (check-even result)
-          (check-zero result))))
+  (let [[_ a-val] (resolve state a size)
+        [_ b-val] (resolve state b size)
+        result (bit-and a-val b-val)]
+    (-> state
+        (check-even result)
+        (check-zero result))))
 
 (defmethod process-instruction :test [& args] (test 8 args))
 
 (defn binary-op [op flag-op size [state [_ src dest]]] (do
-                                                 (assert (= (first dest) :register))
-                                                 (let [[_ src-val] (resolve state src size)
-                                                       [dest-type dest-val] (resolve state dest size)
-                                                       result [dest-type (op dest-val src-val)]]
-                                                   (-> state
-                                                       (set-register-value (second dest) result)
-                                                       (flag-op src-val dest-val)))))
+                                                         (assert (= (first dest) :register))
+                                                         (let [[_ src-val] (resolve state src size)
+                                                               [dest-type dest-val] (resolve state dest size)
+                                                               result [dest-type (op dest-val src-val)]]
+                                                           (-> state
+                                                               (set-register-value (second dest) result)
+                                                               (flag-op src-val dest-val)))))
 
 (defn max-register-value [size] (Math/pow 2 (* size 8)))
 (defn mul [size [state [_ coeff]]] (let [[_ c] (resolve state coeff size)
@@ -269,20 +275,19 @@
   @state
 
   (get c/descriptors (name :rip))
-  
+
   (-> @state
       (process-instruction ["mov" [:literal 0] [:register :rax]])
       (process-instruction ["cmp" [:register :rax] [:literal 0]])
       (process-instruction ["je" [:literal 10]])
       (get-register-value :rip))
-  
+
   (-> @state
       (process-instruction ["jne" [:literal 5]])
       (get-in [:registers :ip]))
-  
+
   (-> @state
       (process-instruction ["cmp" [:literal 10] [:literal 9]])
       (:flags))
-  
-  (test 8 [@state ["test" [:literal 0] [:literal 0]]])
-)
+
+  (test 8 [@state ["test" [:literal 0] [:literal 0]]]))

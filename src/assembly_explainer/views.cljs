@@ -91,15 +91,11 @@
             :let [value (bobj/get-value-from-meta stack m)]]
         ^{:key (hash bytes)} [stack-item-comp value m])]]))
 
-(defn reg-comp [[name {:keys [bytes meta]}]]
-  (let [{:keys [type range]} (first meta)
-        actual-name (some (fn [[desc {:keys [size reg]}]]
-                            (when (and (= size (apply - (reverse range)))
-                                       (= reg name))
-                              desc)) c/descriptors)]
+(defn reg-comp [[_ {:keys [bytes meta]} :as reg-pair]]
+  (let [{:keys [type]} (first meta)]
     [:div.flex
      [:div.w-10.mr-4
-      [val-comp [:register actual-name]]]
+      [val-comp [:register (m/get-register-name reg-pair)]]]
      [val-comp [type (u/bytes-to-num bytes)]]]))
 
 (defn registers-comp []

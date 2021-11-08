@@ -2,7 +2,8 @@
   (:require [reagent.core :as r]
             [framework.core :refer [reg-sub subscribe]]
             [assembly-explainer.util :as u]
-            [assembly-explainer.compiler.byte-object :as bobj]))
+            [assembly-explainer.compiler.byte-object :as bobj]
+            [assembly-explainer.compiler.machine :as m]))
 
 (reg-sub
  :active-page
@@ -68,7 +69,7 @@
          #(let [[_ reg] %
                 val (bobj/get-value-at-index reg 0 8)]
             (= value val)))
-        (map (fn [[n _]] [:register n])))))
+        (map (fn [reg-pair] [:register (m/get-register-name reg-pair)])))))
 
 ;; playground
 (reg-sub

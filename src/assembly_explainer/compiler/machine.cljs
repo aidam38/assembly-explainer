@@ -49,6 +49,25 @@
 (def inc-register #(add-register %1 %2 1))
 (def dec-register #(add-register %1 %2 -1))
 
+(defn set-flag [state flag] (update state :flags conj flag))
+(defn reset-flag [state flag] (update state :flags disj flag))
+
+(defn is-flag-set [state flag]
+  (contains? (:flags state) flag))
+
+(defn is-flag-reset [state flag]
+  (not (contains? (:flags state) flag)))
+
+(defn check-even [state val]
+  (if (even? val)
+    (set-flag state :PF)
+    (reset-flag state :PF)))
+
+(defn check-zero [state val]
+  (if (zero? val)
+    (set-flag state :ZF)
+    (reset-flag state :ZF)))
+
 ;; main processing function
 (defmulti process-instruction (fn [_ op] (keyword (first op))))
 
@@ -106,43 +125,88 @@
 (defmethod process-instruction :popl [& args] (pop 4 args))
 (defmethod process-instruction :popw [& args] (pop 2 args))
 
-(defmethod process-instruction :jmp [state [_ rel]]
-  (do
-    (assert (= (first rel) :literal))
-    (add-register state :rip (second rel))))
+(defn jumpif [condition [state [_ rel]]]
+  (if condition 
+      (add-register state :rip (second rel))
+      state))
 
-(defmethod process-instruction :jeq [state [_ rel]]
-  (do
-    (assert (= (first rel) :literal))
-    (if (contains? (:flags state) :ZF) 
-      (add-register state :rip (second rel)))))
+(defmethod process-instruction :jmp [& args] (jumpif true args))
 
-(defmethod process-instruction :jne [state [_ rel]]
-  (do
-    (assert (= (first rel) :literal))
-    (if (not (contains? (:flags state) :ZF))
-      (add-register state :rip (second rel)))))
+;; https://www.cs.utexas.edu/~byoung/cs429/condition-codes.pdf
 
-(defn set-flag [state flag] (update state :flags conj flag))
-(defn reset-flag [state flag] (update state :flags (fn [flags] (remove #(= % flag) flags))))
+(defmethod process-instruction :jo [& [state :as args]] (jumpif (is-flag-set state :O) args))
+
+(defmethod process-instruction :jno [& [state :as args]] (jumpif (is-flag-reset state :O) args))
+
+(defmethod process-instruction :jb [& [state :as args]] (jumpif (is-flag-set state :CF) args))
+(defmethod process-instruction :jnae [& [state :as args]] (jumpif (is-flag-set state :CF) args))
+
+(defmethod process-instruction :jnb [& [state :as args]] (jumpif (is-flag-reset state :CF) args))
+(defmethod process-instruction :jae [& [state :as args]] (jumpif (is-flag-reset state :CF) args))
+
+(defmethod process-instruction :je [& [state :as args]] (jumpif (is-flag-set state :ZF) args))
+(defmethod process-instruction :jz [& [state :as args]] (jumpif (is-flag-set state :ZF) args))
+
+(defmethod process-instruction :jne [& [state :as args]] (jumpif (is-flag-reset state :ZF) args))
+(defmethod process-instruction :jnz [& [state :as args]] (jumpif (is-flag-reset state :ZF) args))
+
+(defmethod process-instruction :jbe [& [state :as args]] (jumpif (or (is-flag-set state :CF) (is-flag-set state :ZF)) args))
+(defmethod process-instruction :jna [& [state :as args]] (jumpif (or (is-flag-set state :CF) (is-flag-set state :ZF)) args))
+
+(defmethod process-instruction :jnbe [& [state :as args]] (jumpif (or (is-flag-reset state :CF) (is-flag-reset state :ZF)) args))
+(defmethod process-instruction :ja [& [state :as args]] (jumpif (or (is-flag-reset state :CF) (is-flag-reset state :ZF)) args))
+
+(defmethod process-instruction :jl [& [state :as args]] (jumpif (not= (is-flag-set state :SF) (is-flag-set state :OF)) args))
+(defmethod process-instruction :jnge [& [state :as args]] (jumpif (not= (is-flag-set state :SF) (is-flag-set state :OF)) args))
+
+(defmethod process-instruction :jnl [& [state :as args]] (jumpif (= (is-flag-set state :SF) (is-flag-set state :OF)) args))
+(defmethod process-instruction :jge [& [state :as args]] (jumpif (= (is-flag-set state :SF) (is-flag-set state :OF)) args))
+
+(defmethod process-instruction :jle [& [state :as args]] (jumpif (or (not= (is-flag-set state :SF) (is-flag-set state :OF)) (is-flag-set state :ZF)) args))
+(defmethod process-instruction :jng [& [state :as args]] (jumpif (or (not= (is-flag-set state :SF) (is-flag-set state :OF)) (is-flag-set state :ZF)) args))
+
+(defmethod process-instruction :jg [& [state :as args]] (jumpif (and (= (is-flag-set state :SF) (is-flag-set state :OF)) (is-flag-reset state :ZF)) args))
+(defmethod process-instruction :jnle [& [state :as args]] (jumpif (and (= (is-flag-set state :SF) (is-flag-set state :OF)) (is-flag-reset state :ZF)) args))
+
+(defn set-sub-carry [state a b]
+  (if (> a b) (set-flag state :CF) (reset-flag state :CF)))
+
+(defn set-sub-overflow [state a b]
+  (if (> a b) (set-flag state :OF) (reset-flag state :OF)))
+
+(defn set-sub-zero [state a b]
+  (if (= a b) (set-flag state :ZF) (reset-flag state :ZF)))
+
+(defn set-sub-flags [state a b]
+  (-> state
+      (set-sub-overflow a b)
+      (set-sub-carry a b)
+      (set-sub-zero a b)))
+
+(defn cmp [size [state [_ a b]]] 
+  (let [
+        [_ a-val] (resolve state a size)
+        [_ b-val] (resolve state b size)]
+   (set-sub-flags state b-val a-val)))
 
 (defn test [size [state [_ a b]]]
-  (do
     (let [[_ a-val] (resolve state a size)
           [_ b-val] (resolve state b size)
           result (bit-and a-val b-val)]
-      (-> result
-          (#(if (even? %) (set-flag state :PF) (reset-flag state :PF)))
-          (#(if (zero? %) (set-flag state :ZF) (reset-flag state :ZF)))))))
+      (-> state
+          (check-even result)
+          (check-zero result))))
 
 (defmethod process-instruction :test [& args] (test 8 args))
 
-(defn binary-op [op size [state [_ src dest]]] (do
+(defn binary-op [op flag-op size [state [_ src dest]]] (do
                                                  (assert (= (first dest) :register))
                                                  (let [[_ src-val] (resolve state src size)
                                                        [dest-type dest-val] (resolve state dest size)
                                                        result [dest-type (op dest-val src-val)]]
-                                                   (set-register-value state (second dest) result))))
+                                                   (-> state
+                                                       (set-register-value (second dest) result)
+                                                       (flag-op src-val dest-val)))))
 
 (defn max-register-value [size] (Math/pow 2 (* size 8)))
 (defn mul [size [state [_ coeff]]] (let [[_ c] (resolve state coeff size)
@@ -159,8 +223,9 @@
                                      result [a-type (* a-val c)]]
                                  (set-register-value state :ax result)))
 
-(defmethod process-instruction :add [& args] (binary-op + 8 args))
-(defmethod process-instruction :sub [& args] (binary-op - 8 args))
+(defmethod process-instruction :add [& args] (binary-op + identity 8 args))
+(defmethod process-instruction :sub [& args] (binary-op - set-sub-flags 8 args))
+(defmethod process-instruction :cmp [& args] (cmp 8 args))
 
 (defmethod process-instruction :mulq [& args] (mul 8 args))
 (defmethod process-instruction :muld [& args] (mul 4 args))
@@ -168,11 +233,11 @@
 (defmethod process-instruction :mulw [& args] (mul 2 args))
 (defmethod process-instruction :mulb [& args] (mulb args))
 
-(defmethod process-instruction :imulq [& args] (binary-op * 8 args))
-(defmethod process-instruction :imuld [& args] (binary-op * 4 args))
-(defmethod process-instruction :imull [& args] (binary-op * 4 args))
-(defmethod process-instruction :imulw [& args] (binary-op * 2 args))
-(defmethod process-instruction :imulb [& args] (binary-op * 1 args))
+(defmethod process-instruction :imulq [& args] (binary-op * identity 8 args))
+(defmethod process-instruction :imuld [& args] (binary-op * identity 4 args))
+(defmethod process-instruction :imull [& args] (binary-op * identity 4 args))
+(defmethod process-instruction :imulw [& args] (binary-op * identity 2 args))
+(defmethod process-instruction :imulb [& args] (binary-op * identity 1 args))
 
 ;; main stepping function
 (defn step [state] (let [[_ ripval] (get-register-value state :rip)
@@ -189,7 +254,7 @@
                                  (map (fn [r] [r starting-register]))
                                  (into {}))
                             (update :ip bobj/move-into [:ins 0] 0 8)
-                            (update :sp bobj/move-into [:stack 0] 0 8)))
+                            (update :sp bobj/move-into [:stack 100] 0 8)))
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers
@@ -204,24 +269,20 @@
   @state
 
   (get c/descriptors (name :rip))
-
+  
   (-> @state
-      (add-register :rip 2)
-      (get-register-value :rax))
-
+      (process-instruction ["mov" [:literal 0] [:register :rax]])
+      (process-instruction ["cmp" [:register :rax] [:literal 0]])
+      (process-instruction ["je" [:literal 10]])
+      (get-register-value :rip))
+  
   (-> @state
-      (process-instruction ["mov" [:register :rsp] [:register :ax]])
-      (process-instruction ["add" [:literal 10] [:register :ax]])
-      :registers
-      :ax)
-
-  (swap! state step)
-  (process-instruction @state ["push" [:literal 1]])
-  (process-instruction @state ["popl" [:register :rax]])
-  (process-instruction @state ["mov" [:literal 1] [:indirection :rsp]])
-
+      (process-instruction ["jne" [:literal 5]])
+      (get-in [:registers :ip]))
+  
   (-> @state
-      (process-instruction ["mov" [:literal 1] [:indirection :rsp 8]])
-      (process-instruction ["mov" [:literal 2] [:indirection :rsp 0]])
-      (process-instruction ["mov" [:indirection :rsp 0] [:register :rax]])
-      (process-instruction ["mov" [:indirection :rsp 8] [:register :rbx]])))
+      (process-instruction ["cmp" [:literal 10] [:literal 9]])
+      (:flags))
+  
+  (test 8 [@state ["test" [:literal 0] [:literal 0]]])
+)

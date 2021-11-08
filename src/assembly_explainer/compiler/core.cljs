@@ -6,8 +6,8 @@
                    "mul" "mulq" "mull" "muld" "mulw"
                    "imul" "imulq" "imull" "imuld" "imulw"
                    "add" "sub"
-                   "jmp", "jeq", "jne",
-                   "test"])
+                   "jmp", "jeq", "jne", "jl", "jg", "jb", "ja"
+                   "test", "cmp"])
 
 (def registers [:a :b :c :d :si :di :bp :sp :ip :8 :9 :10 :11 :12 :13 :14 :15])
 

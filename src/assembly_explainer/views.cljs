@@ -138,28 +138,32 @@
      [flags-comp]]]
    [buttons]])
 
+(defn link-comp [link label]
+  [:a.h-8.p-2.rounded.flex.items-center.hover:text-gray-300.hover:bg-gray-700 {:href link} label])
+
 (defn sidebar []
-  [:div.flex.flex-col.p-2.rounded.bg-gray-600.bg-opacity-50
-   [:a {:href (rfe/href :home)} "Home"]
-   [:div.mx-2.flex.flex-col
-    "Examples"
+  [:div.flex.flex-col.p-4.rounded.bg-gray-600.bg-opacity-50.text-gray-300.divide-gray-700.divide-y-2.space-y-4
+   [link-comp (rfe/href :home) "Introduction"]
+   [:div.flex.flex-col.pt-2
+    [:span.uppercase.text-xs.mb-2 "Examples"]
     (for [n s/program-names]
-      ^{:key n} [:a {:href (rfe/href :example {:example n})} "— " n])]
-   [:a {:href (rfe/href :playground)} "Playground"]])
+      ^{:key n} [link-comp (rfe/href :example {:example n}) n])]
+   [link-comp (rfe/href :playground) "Playground"]])
 
 (defn main []
   (let [active-page @(subscribe [:active-page])]
-    [:div.h-screen.bg-gray-500.font-mono.relative
-     [:div.absolute.h-screen.flex
-      [:div.pt-32
-       [sidebar]]]
-     [:div.container.max-w-screen-md.mx-auto
-      (case active-page
-        :home [:div "hello worlds"]
-        :example [:div.pt-10
-                  [header]
-                  [dashboard]]
-        :playground [:div "playground"])
+    [:div.h-screen.bg-gray-600.font-mono
+     [:div.container.max-w-screen-xl.mx-auto.flex.flex-row
+      [:div.w-56.pt-32
+       [sidebar]]
+      [:div.container
+       (case active-page
+         :home [:div "hello worlds"]
+         :example [:div.pt-10
+                   [header]
+                   [dashboard]]
+         :playground [:div "playground"])]
+      [:div.w-56]
       #_(when true
           [:div.text-gray-100
            [:pre.pt-24 (with-out-str (cljs.pprint/pprint @(:app-state ctx)))]

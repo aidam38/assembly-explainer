@@ -5,5 +5,4 @@
 /.shadow-cljs
 /node_modules
 /resources/public/js
-/resources/public/app.css
 /src/assembly_explainer/.clj-kondo

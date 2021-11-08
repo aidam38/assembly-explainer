@@ -66,10 +66,15 @@
       (for [[i ins] (map-indexed vector instructions)]
         ^{:key (hash ins)} [ins-comp ins i])]]))
 
-(defn stack-item-comp [val meta]
-  [:div.flex.p-2
-   [:div.mr-8
-    [val-comp val]]])
+(defn stack-item-comp [val {:keys [range]}]
+  [:div.relative
+   [:div.absolute.text-gray-400.text-xs  (first range)]
+   [:div.absolute.right-0.text-gray-400.text-xs
+    (for [bl @(subscribe [:get-backlinks-of [:stack (first range)]])]
+      ^{:key bl} [val-comp bl])]
+   [:div.flex.p-2.ml-6
+    [:div.mr-8
+     [val-comp val]]]])
 
 (defn stack-comp []
   (let [{:keys [bytes meta] :as stack} @(subscribe [:stack])]
@@ -77,7 +82,7 @@
      [:div.h-64.divide-y-2.divide-gray-500
       (for [m meta
             :let [value (bobj/get-value-from-meta stack m)]]
-        ^{:key (hash bytes)} [stack-item-comp value meta])]]))
+        ^{:key (hash bytes)} [stack-item-comp value m])]]))
 
 (defn reg-comp [name {:keys [bytes meta]}]
   (let [{:keys [type range]} (first meta)
@@ -92,10 +97,18 @@
 (defn registers-comp []
   (let [registers @(subscribe [:registers])]
     [panel "registers"
-     [:div
+     [:div.h-32
       (for [[name {:keys [meta] :as reg}] registers
             :when (some :type meta)]
         ^{:key name} [reg-comp name reg])]]))
+
+#_(defn filter-comp [name val]
+    [:div name " " val])
+
+(defn flags-comp []
+  (let [flags @(subscribe [:flags])]
+    [panel "flags"
+     [:div.h-28 (pr-str flags)]]))
 
 (defn chevron-button [which on-click]
   [:button.p-1.mr-2.rounded-full.flex.justify-center.items-center.hover:bg-gray-600
@@ -118,7 +131,8 @@
      [program-comp]]
     [:div.p-2 {:class "w-1/2"}
      [stack-comp]
-     [registers-comp]]]
+     [registers-comp]
+     [flags-comp]]]
    [buttons]])
 
 (defn sidebar []

@@ -30,6 +30,11 @@
    (:stack @(subscribe [:program-state]))))
 
 (reg-sub
+ :flags
+ (fn [_ _]
+   (:flags @(subscribe [:program-state]))))
+
+(reg-sub
  :instructions
  (fn [_ _]
    (:instructions @(subscribe [:program-state]))))
@@ -42,12 +47,14 @@
 (reg-sub
  :current-instruction
  (fn [_ _]
-   (second (:rip @(subscribe [:registers])))))
+   (second (bobj/get-value-at-index (:ip @(subscribe [:registers])) 0 8))))
 
 (reg-sub
  :at-end-of-program?
  (fn [_ _]
-   (= @(subscribe [:current-instruction]) (dec @(subscribe [:number-of-instructions])))))
+   (u/prr  @(subscribe [:current-instruction]))
+   (= @(subscribe [:current-instruction])
+      @(subscribe [:number-of-instructions]))))
 
 (reg-sub
  :at-start-of-program?

@@ -114,7 +114,7 @@
 (defmethod process-instruction :jeq [state [_ rel]]
   (do
     (assert (= (first rel) :literal))
-    (if (contains? (:flags state) :ZF) 
+    (if (contains? (:flags state) :ZF)
       (add-register state :rip (second rel)))))
 
 (defmethod process-instruction :jne [state [_ rel]]
@@ -127,13 +127,12 @@
 (defn reset-flag [state flag] (update state :flags (fn [flags] (remove #(= % flag) flags))))
 
 (defn test [size [state [_ a b]]]
-  (do
-    (let [[_ a-val] (resolve state a size)
-          [_ b-val] (resolve state b size)
-          result (bit-and a-val b-val)]
-      (-> result
-          (#(if (even? %) (set-flag state :PF) (reset-flag state :PF)))
-          (#(if (zero? %) (set-flag state :ZF) (reset-flag state :ZF)))))))
+  (let [[_ a-val] (resolve state a size)
+        [_ b-val] (resolve state b size)
+        result (bit-and a-val b-val)]
+    (-> result
+        (#(if (even? %) (set-flag state :PF) (reset-flag state :PF))
+         (#(if (zero? %) (set-flag state :ZF) (reset-flag state :ZF)))))))
 
 (defmethod process-instruction :test [& args] (test 8 args))
 
@@ -189,7 +188,7 @@
                                  (map (fn [r] [r starting-register]))
                                  (into {}))
                             (update :ip bobj/move-into [:ins 0] 0 8)
-                            (update :sp bobj/move-into [:stack 0] 0 8)))
+                            (update :sp bobj/move-into [:stack 100] 0 8)))
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers

@@ -59,7 +59,7 @@
 (defn resolve [state [type :as arg] size]
   (case type
     :literal arg
-    :register (get-register-value state (second arg)) ;; -> [:stack 0]
+    :register (get-register-value state (second arg))
     :indirection (let [[_ register & rest] arg
                        [_ v] (get-register-value state register)
                        offset (+ v (nth rest 0 0))]
@@ -109,9 +109,34 @@
 
 (defmethod process-instruction :jmp [state [_ rel]]
   (do
-    (js/console.log (str rel))
     (assert (= (first rel) :literal))
     (add-register state :rip (second rel))))
+
+(defmethod process-instruction :jeq [state [_ rel]]
+  (do
+    (assert (= (first rel) :literal))
+    (if (contains? (:flags state) :ZF) 
+      (add-register state :rip (second rel)))))
+
+(defmethod process-instruction :jne [state [_ rel]]
+  (do
+    (assert (= (first rel) :literal))
+    (if (not (contains? (:flags state) :ZF))
+      (add-register state :rip (second rel)))))
+
+(defn set-flag [state flag] (update state :flags conj flag))
+(defn reset-flag [state flag] (update state :flags (fn [flags] (remove #(= % flag) flags))))
+
+(defn test [size [state [_ a b]]]
+  (do
+    (let [[_ a-val] (resolve state a size)
+          [_ b-val] (resolve state b size)
+          result (bit-and a-val b-val)]
+      (-> result
+          (#(if (even? %) (set-flag state :PF) (reset-flag state :PF)))
+          (#(if (zero? %) (set-flag state :ZF) (reset-flag state :ZF)))))))
+
+(defmethod process-instruction :test [& args] (test 8 args))
 
 (defn binary-op [op size [state [_ src dest]]] (do
                                                  (assert (= (first dest) :register))
@@ -169,7 +194,7 @@
 
 (defn init-program-state [program-input]
   (r/atom {:registers starting-registers
-           :flags []
+           :flags #{}
            :instructions (parse program-input)
            :stack bobj/empty-object}))
 

@@ -29,6 +29,7 @@
   (i/transform
    {:ins (fn [[_ opcode] [_ & args]] (concat [opcode] args))
     :arg (fn [type] type)
+    :literal (fn [value] [:literal (int value)])
     :indirection (fn
                    ([[_ register]] [:indirection (keyword register)])
                    ([[_ offset] [_ register]] [:indirection (keyword register) (js/parseInt offset)]))}
@@ -45,10 +46,9 @@
 (comment
   (def test-program {:code 
                      
-"mov $42, %rbx
-mov %rbx,(%rsp)
-push %rbx
-pop %rax"
+"mov $1, %rax
+imulq $2, %rax
+jmp $-2"
                      
 })
   (assembly-parser (:code test-program))

@@ -6,17 +6,8 @@
                    "mul" "mulq" "mull" "muld" "mulw"
                    "imul" "imulq" "imull" "imuld" "imulw"
                    "add" "sub"
-                   "jmp"])
-
-(def registers-raw ["ax" "bx" "cx" "dx" "si" "di" "sp" "bp" "ip"])
-
-(defn prefix-registers [prefix registers]
-  (map #(str prefix %) registers))
-
-(def prefixes ["r" "e" ""])
-
-(def registers-all
-  (mapcat #(prefix-registers % registers-raw) prefixes))
+                   "jmp", "jeq", "jne",
+                   "test"])
 
 (def registers [:a :b :c :d :si :di :bp :sp :ip :8 :9 :10 :11 :12 :13 :14 :15])
 

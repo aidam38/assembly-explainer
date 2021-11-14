@@ -10,10 +10,12 @@
 
 (def parser-syntax
   (str
-   "S = ins+
+   "S = (ins | label-mark)+
     ins = ws opcode ws args nl
     args = (arg comma)+
-    arg = register | indirection | literal
+    arg = register | indirection | literal | label
+    label = #'\\w+'
+    label-mark = ws label <':'> ws
     indirection = offset? <'('> register <')'>
     offset = #'-?\\d+'
     literal = <'$'> #'-?\\d+'
@@ -35,23 +37,27 @@
                    ([[_ offset] [_ register]] [:indirection (keyword register) (js/parseInt offset)]))}
    (vec (rest code-struct))))
 
+(defn process-labels [code-struct]
+  (:result
+   (reduce (fn [acc [type first-arg :as item]]
+             (if (= type :label-mark)
+               (-> acc
+                   (update-in [:result :labels] assoc
+                              (second first-arg)
+                              [:ins (:index acc)]))
+               (-> acc
+                   (update-in [:result :instructions] conj item)
+                   (update :index inc))))
+           {:index 0
+            :result {:instructions [] :labels {}}}
+           code-struct)))
+
 (defn parse [{:keys [code]}]
   (->> code
        assembly-parser
        get-ast
-       vec))
+       vec
+       process-labels))
 
 #_(def literal (let [[src dest] (let [[op & args] (first ast)] args)] src))
 
-(comment
-  (def test-program {:code 
-                     
-"mov $1, %rax
-imulq $2, %rax
-jmp $-2"
-                     
-})
-  (assembly-parser (:code test-program))
-  (parse test-program)
-
-)

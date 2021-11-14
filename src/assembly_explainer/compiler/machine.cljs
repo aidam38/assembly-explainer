@@ -263,10 +263,10 @@
                             (update :sp bobj/move-into [:stack 100] 0 8)))
 
 (defn init-program-state [program-input]
-  (r/atom {:registers starting-registers
-           :flags #{}
-           :instructions (parse program-input)
-           :stack bobj/empty-object}))
+  (r/atom (merge (parse program-input)
+                 {:registers starting-registers
+                  :flags #{}
+                  :stack bobj/empty-object})))
 
 ;; REPL
 (comment

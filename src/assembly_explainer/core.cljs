@@ -21,6 +21,6 @@
 
 (defn ^:export init []
   #_(initialize-keyboard)
-  (router/init-routes!)
   (dispatch [:init-app-state])
+  (router/init-routes!)
   (dev-init))

@@ -107,9 +107,6 @@
             :when (some :type meta)]
         ^{:key name} [reg-comp reg])]]))
 
-#_(defn filter-comp [name val]
-    [:div name " " val])
-
 (defn flags-comp []
   (let [flags @(subscribe [:flags])]
     [panel "flags"
@@ -173,10 +170,10 @@
          "Run!"]]]
       [program-dashboard])))
 
-(defn link-comp [path label]
+(defn link-comp [route label]
   [:a.h-8.p-2.rounded.flex.items-center.hover:text-gray-300.hover:bg-gray-700
-   {:href (apply rfe/href path)
-    :class (when @(subscribe [:is-current? path]) "text-red-500")}
+   {:href (apply rfe/href route)
+    :class (when @(subscribe [:is-current? route]) "text-red-500")}
    label])
 
 (defn sidebar []

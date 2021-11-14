@@ -83,15 +83,19 @@
  (fn [app-state _]
    (get-in @app-state [:editing?])))
 
-(reg-sub
- :current-url
- (fn [_ _]
-   (.-hash js/location)))
+(defn- name-matches?
+  [{name1 :name
+    path1 :path}
+   {name2 :name
+    path2 :path}]
+  (and (= name1 name2)
+       (= (not-empty path1)
+          (not-empty path2))))
 
 (reg-sub
  :is-current?
- (fn [_ [_ path]]
-   (js/console.log (subs @(subscribe [:current-url]) 1))
-   (=
-    (router/match-by-name path)
-    (router/match-by-path (subs @(subscribe [:current-url]) 1)))))
+ (fn [app-state [_ [name path]]]
+   (name-matches?
+    (get @app-state :current-route)
+    {:name name
+     :path path})))

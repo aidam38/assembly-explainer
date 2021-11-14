@@ -14,12 +14,12 @@
 (reg-event
  :navigated
  (fn [app-state [_ {{:keys [name on-leave on-enter]} :data
-                    {:keys [path]}                   :parameters :as match}]]
+                    path :path-params}]]
    (when-let [old-leave-fn (get-in @app-state [:current-route :leave-fn])]
-     (old-leave-fn))
+     (old-leave-fn (get-in @app-state [:current-route :path])))
    (swap! app-state assoc :current-route {:name     name
                                           :path path
-                                          :leave-fn (when on-leave #(on-leave path))})
+                                          :leave-fn on-leave})
    (when on-enter (on-enter path))))
 
 

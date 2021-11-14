@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [framework.core :refer [reg-sub subscribe]]
             [assembly-explainer.util :as u]
+            [assembly-explainer.router :as router]
             [assembly-explainer.compiler.byte-object :as bobj]
             [assembly-explainer.compiler.machine :as m]))
 
@@ -81,3 +82,16 @@
  :editing?
  (fn [app-state _]
    (get-in @app-state [:editing?])))
+
+(reg-sub
+ :current-url
+ (fn [_ _]
+   (.-hash js/location)))
+
+(reg-sub
+ :is-current?
+ (fn [_ [_ path]]
+   (js/console.log (subs @(subscribe [:current-url]) 1))
+   (=
+    (router/match-by-name path)
+    (router/match-by-path (subs @(subscribe [:current-url]) 1)))))

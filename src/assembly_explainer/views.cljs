@@ -8,6 +8,7 @@
    [assembly-explainer.compiler.byte-object :as bobj]
    [assembly-explainer.util :as u]
    [assembly-explainer.state :as s]
+   [assembly-explainer.router :as router]
    [assembly-explainer.compiler.parser :as p]
    [reitit.frontend.easy :as rfe]
    [cljs.pprint]
@@ -172,17 +173,20 @@
          "Run!"]]]
       [program-dashboard])))
 
-(defn link-comp [link label]
-  [:a.h-8.p-2.rounded.flex.items-center.hover:text-gray-300.hover:bg-gray-700 {:href link} label])
+(defn link-comp [path label]
+  [:a.h-8.p-2.rounded.flex.items-center.hover:text-gray-300.hover:bg-gray-700
+   {:href (apply rfe/href path)
+    :class (when @(subscribe [:is-current? path]) "text-red-500")}
+   label])
 
 (defn sidebar []
   [:div.flex.flex-col.p-4.rounded.bg-gray-600.bg-opacity-50.text-gray-300.divide-gray-700.divide-y-2.space-y-4
-   [link-comp (rfe/href :home) "Introduction"]
+   [link-comp [:home] "Introduction"]
    [:div.flex.flex-col.pt-2
     [:span.uppercase.text-xs.mb-2 "Examples"]
     (for [n s/program-names]
-      ^{:key n} [link-comp (rfe/href :example {:example n}) n])]
-   [link-comp (rfe/href :playground) "Playground"]])
+      ^{:key n} [link-comp [:example {:example n}] n])]
+   [link-comp [:playground] "Playground"]])
 
 (defn main []
   (let [active-page @(subscribe [:active-page])]

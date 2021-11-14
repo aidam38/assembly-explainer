@@ -1,5 +1,6 @@
 (ns assembly-explainer.router
-  (:require [reitit.frontend :as rtf]
+  (:require [reitit.core :as r]
+            [reitit.frontend :as rtf]
             [reitit.frontend.easy :as rtfe]
             [reitit.coercion.schema :as rtcs]
             [framework.core :refer [dispatch]]))
@@ -19,6 +20,13 @@
   (rtf/router
    routes
    {:data {:coercion rtcs/coercion}}))
+
+(defn match-by-name [path]
+  (apply r/match-by-name router path))
+
+(defn match-by-path [url]
+  (r/match-by-path router url))
+
 
 (defn init-routes! []
   (rtfe/start!
